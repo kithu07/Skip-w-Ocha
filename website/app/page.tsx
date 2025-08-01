@@ -19,13 +19,8 @@ export default function HomePage() {
             <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-purple-600 rounded-lg flex items-center justify-center animate-pulse-custom">
               <Film className="w-4 h-4 text-white" />
             </div>
-            CinemaAzure
+            Mindathe Irikk
           </div>
-          <Link href="/dashboard">
-            <Button variant="outline" className="font-medium bg-transparent border-gray-600 text-white hover:bg-gray-800 hover-pulse animate-slide-in-right">
-              Dashboard
-            </Button>
-          </Link>
         </div>
       </header>
 
@@ -44,18 +39,18 @@ export default function HomePage() {
           </Badge>
 
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight animate-slide-in-bottom">
-            Talk less, watch more.
+            Keep calm and watch.
             <span className="block bg-gradient-to-r from-red-500 via-purple-500 to-blue-500 bg-clip-text text-transparent animate-glow">
-              CinemaAzure
+              Mindathe Irikk
             </span>
           </h1>
 
           <p className="text-xl md:text-2xl text-gray-300 mb-4 font-medium animate-slide-in-bottom stagger-1">
-            "CinemaAzure keeps your movie nights sacred."
+            "Mindathe Irikk - Your Cinema companion"
           </p>
 
           <p className="text-lg text-gray-400 mb-8 max-w-2xl mx-auto animate-slide-in-bottom stagger-2">
-            The AI-powered Chrome extension that shushes talkers with hilarious scolding sounds. 
+            The Chrome extension that shushes talkers with hilarious scolding sounds. 
             Because silence is golden, but comedy is priceless! 🎭
           </p>
 
@@ -97,7 +92,7 @@ export default function HomePage() {
             <div className="bg-red-900/30 p-4 rounded-lg border border-red-700">
               <div className="text-4xl mb-2">🤫</div>
               <p className="text-red-300 font-semibold">"SHHHHH! This is a LIBRARY!"</p>
-              <p className="text-gray-400 text-sm mt-2">- CinemaAzure, probably</p>
+              <p className="text-gray-400 text-sm mt-2">- Mindathe Irikk, probably</p>
             </div>
           </div>
         </div>
@@ -113,7 +108,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 justify-center">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 ml-66 gap-6 justify-center">
             <Card className="border-gray-700 bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 group animate-float stagger-1">
               <CardHeader className="text-center pb-4">
                 <div className="w-12 h-12 bg-gradient-to-r from-red-600 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 animate-pulse-custom">
@@ -151,21 +146,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent className="text-center">
                 <CardDescription className="text-gray-400">
-                  Choose from Strict Mom, Angry Teacher, or Mallu Aunty
-                </CardDescription>
-              </CardContent>
-            </Card>
-
-            <Card className="border-gray-700 bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 group animate-float stagger-4">
-              <CardHeader className="text-center pb-4">
-                <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 animate-pulse-custom">
-                  <BarChart3 className="h-6 w-6 text-white" />
-                </div>
-                <CardTitle className="text-xl font-semibold text-white">Smart Analytics</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center">
-                <CardDescription className="text-gray-400">
-                  Track how many times you've been shushed (for science!)
+                  Get roasted by your favorite characters
                 </CardDescription>
               </CardContent>
             </Card>
@@ -177,7 +158,7 @@ export default function HomePage() {
       <section className="py-16 px-6 bg-black/50">
         <div className="container mx-auto max-w-4xl">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl animate-slide-in-bottom font-bold text-white mb-4">How CinemaAzure Works</h2>
+            <h2 className="text-3xl md:text-4xl animate-slide-in-bottom font-bold text-white mb-4">How Mindathe Irikk Works</h2>
             <p className="text-lg text-gray-400">Three simple steps to a peaceful movie night</p>
           </div>
 
@@ -191,7 +172,7 @@ export default function HomePage() {
               </div>
               <h3 className="text-xl font-semibold text-white mb-3">Start your movie</h3>
               <p className="text-gray-400">
-                Fire up Netflix, YouTube, or any streaming platform. CinemaAzure works everywhere!
+                Fire up Netflix, YouTube, or any streaming platform. Mindathe Irikk works everywhere!
               </p>
             </div>
 
@@ -202,7 +183,7 @@ export default function HomePage() {
                 </div>
                 <Headphones className="h-6 w-6 text-gray-300" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">Let CinemaAzure listen</h3>
+              <h3 className="text-xl font-semibold text-white mb-3">Let Mindathe Irikk listen</h3>
               <p className="text-gray-400">
                 The AI silently monitors ambient sound levels while you enjoy your content
               </p>
@@ -224,42 +205,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-16 px-6 bg-gray-900">
-        <div className="container mx-auto max-w-4xl">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">What Users Say</h2>
-            <p className="text-lg text-gray-400">Real reviews from real movie lovers</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 animate-float">
-              <div className="text-2xl mb-3">😅</div>
-              <p className="text-gray-300 mb-3">"My roommate finally shuts up! CinemaAzure is the hero we didn't know we needed."</p>
-              <p className="text-gray-500 text-sm">- Sarah, Movie Night Host</p>
-            </div>
-
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 animate-float stagger-1">
-              <div className="text-2xl mb-3">🤣</div>
-              <p className="text-gray-300 mb-3">"I got shushed by my laptop. 10/10 would recommend to anyone with talkative friends."</p>
-              <p className="text-gray-500 text-sm">- Mike, Film Enthusiast</p>
-            </div>
-
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 animate-float stagger-2">
-              <div className="text-2xl mb-3">🎭</div>
-              <p className="text-gray-300 mb-3">"The Mallu Aunty voice is everything! My family thinks I'm possessed by a ghost."</p>
-              <p className="text-gray-500 text-sm">- Priya, Comedy Lover</p>
-            </div>
-
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 animate-float stagger-3">
-              <div className="text-2xl mb-3">🏆</div>
-              <p className="text-gray-300 mb-3">"Best invention since sliced bread. My movie nights are now sacred and hilarious."</p>
-              <p className="text-gray-500 text-sm">- Alex, Home Theater Owner</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* CTA Section */}
       <section className="py-16 px-6 bg-black/50">
         <div className="container mx-auto max-w-3xl text-center">
@@ -273,7 +218,7 @@ export default function HomePage() {
             className="bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-white font-semibold text-lg px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 animate-zoom-in stagger-2 hover-pulse"
           >
             <Download className="mr-2 h-5 w-5 animate-bounce-custom" />
-            Get CinemaAzure Now
+            Get Mindathe Irikk Now
           </Button>
         </div>
       </section>
@@ -285,9 +230,9 @@ export default function HomePage() {
             <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-purple-600 rounded-lg flex items-center justify-center animate-pulse-custom">
               <Film className="w-4 h-4 text-white" />
             </div>
-            <span className="text-xl font-bold">CinemaAzure</span>
+            <span className="text-xl font-bold">Mindathe Irikk</span>
           </div>
-          <p className="text-gray-400 mb-2 animate-slide-in-bottom stagger-1">Made with ❤️ for peaceful movie nights</p>
+          <p className="text-gray-400 mb-2 animate-slide-in-bottom stagger-1">Made with ❤️ by Masala Dosa</p>
           <p className="text-gray-500 text-sm animate-slide-in-bottom stagger-2">Warning: May cause uncontrollable laughter during serious movie scenes</p>
         </div>
       </footer>
@@ -307,7 +252,7 @@ export default function HomePage() {
               <div className="w-16 h-16 bg-gradient-to-r from-red-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-custom">
                 <Chrome className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-white mb-2">💻 How to Add CinemaAzure to Chrome</h3>
+              <h3 className="text-2xl font-bold text-white mb-2">💻 How to Add Mindathe Irikk to Chrome</h3>
             </div>
 
             <div className="space-y-4">

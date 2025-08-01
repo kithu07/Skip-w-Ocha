@@ -11,19 +11,6 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Area, AreaChart, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import { Volume2, Flame, Zap, Clock, Settings, Home, TrendingUp, Mic, VolumeX, Film, Headphones, UserCheck } from "lucide-react"
 
-// Mock data for the chart
-const soundData = [
-  { time: "9:00", decibels: 45 },
-  { time: "9:30", decibels: 78 },
-  { time: "10:00", decibels: 92 },
-  { time: "10:30", decibels: 67 },
-  { time: "11:00", decibels: 105 },
-  { time: "11:30", decibels: 89 },
-  { time: "12:00", decibels: 112 },
-  { time: "12:30", decibels: 95 },
-  { time: "13:00", decibels: 87 },
-  { time: "13:30", decibels: 98 },
-]
 
 export default function Dashboard() {
   const [micSensitivity, setMicSensitivity] = useState([75])
@@ -169,51 +156,6 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Chart Section */}
-        <Card className="mb-8 border-gray-700 bg-gray-800 shadow-lg animate-slide-in-bottom">
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold text-white flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-blue-500 animate-pulse-custom" />
-              Sound Activity Over Time
-            </CardTitle>
-            <CardDescription className="text-gray-400">
-              Ambient sound levels throughout your movie sessions (measured in decibels)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                decibels: {
-                  label: "Decibels",
-                  color: "hsl(var(--chart-1))",
-                },
-              }}
-              className="h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={soundData}>
-                  <defs>
-                    <linearGradient id="colorDecibels" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 12 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="decibels"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorDecibels)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
 
         {/* Controls Section */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
@@ -278,70 +220,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Voice Personality Selection */}
-        <Card className="mb-8 border-gray-700 bg-gray-800 shadow-lg animate-slide-in-bottom">
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold text-white flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-purple-500" />
-              Choose Your Scolding Voice
-            </CardTitle>
-            <CardDescription className="text-gray-400">
-              Select the personality that will do the scolding
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {voicePersonalities.map((voice) => (
-                <div
-                  key={voice.id}
-                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                    selectedVoice === voice.id
-                      ? 'border-purple-500 bg-purple-900/20'
-                      : 'border-gray-600 bg-gray-700 hover:border-gray-500'
-                  }`}
-                  onClick={() => setSelectedVoice(voice.id)}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-white">{voice.name}</h3>
-                    {selectedVoice === voice.id && (
-                      <div className="w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-400">{voice.description}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Test Audio Section */}
-        <Card className="border-gray-700 bg-gray-800 shadow-lg animate-slide-in-bottom">
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold text-white flex items-center gap-2">
-              <Headphones className="h-5 w-5 text-blue-500" />
-              Test Your Scolding Voice
-            </CardTitle>
-            <CardDescription className="text-gray-400">
-              Preview how your selected voice personality sounds
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center">
-              <Button
-                className="bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-white px-8 py-3"
-              >
-                <Volume2 className="mr-2 h-4 w-4" />
-                Play Sample Scolding
-              </Button>
-              <p className="text-sm text-gray-500 mt-2">
-                Current voice: <span className="text-purple-400 font-medium">{voicePersonalities.find(v => v.id === selectedVoice)?.name}</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

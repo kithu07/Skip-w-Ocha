@@ -1,84 +1,113 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skip-w-Ocha</title>
   <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
-    <header>
-      <div class="logo">&#127908;</div>
-      <h1>Scream to Skip</h1>
-      <p class="subtitle">Skip YouTube ads with your voice</p>
-    </header>
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">🎤</div>
+        <h1>Skip-w-Ocha</h1>
+      </div>
+      <p class="tagline">When capitalism screams, you scream back!</p>
+    </div>
 
-    <main>
-      <div class="control-group">
-        <div class="control-item">
-          <div class="control-label">
-            <span>Enable</span>
-            <div class="status-dot" id="statusDot"></div>
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="toggle">
-            <span class="toggle-slider"></span>
-          </label>
+    <!-- Extension Toggle -->
+    <div class="section">
+      <div class="setting-row">
+        <div class="setting-info">
+          <h3>Extension Status</h3>
+          <p>Enable voice-activated ad skipping</p>
         </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
 
-        <div class="control-item">
-          <div class="control-label">
-            <span>Sensitivity</span>
-            <span class="value-display" id="sensitivityValue">0.5</span>
-          </div>
-          <div class="slider-container">
-            <input type="range" min="0.1" max="1" value="0.5" step="0.1" id="sensitivity">
-            <div class="slider-labels">
-              <span>Quiet</span>
-              <span>Loud</span>
-            </div>
-          </div>
+    <!-- Sensitivity Slider -->
+    <div class="section">
+      <div class="setting-row">
+        <div class="setting-info">
+          <h3>Scream Sensitivity</h3>
+          <p>Higher sensitivity means a softer scream to skip</p>
         </div>
-
-        <!-- Live Audio Meter -->
-        <div class="control-item audio-meter-container">
-          <div class="control-label">
-            <span>Live Audio Level</span>
-            <span class="value-display" id="audioLevel">0.00</span>
+        <div class="sensitivity-container">
+          <input type="range" min="1" max="10" value="5" step="1" id="sensitivity" class="sensitivity-slider">
+          <div class="sensitivity-value">
+            <span id="sensitivity-display">5</span>
           </div>
-          <div class="audio-meter">
-            <div class="meter-bar">
-              <div class="level-indicator" id="levelIndicator"></div>
-              <div class="threshold-line" id="thresholdLine"></div>
-            </div>
-            <div class="meter-labels">
-              <span>0</span>
-              <span>0.5</span>
-              <span>1.0</span>
-            </div>
-          </div>
-          <div class="meter-status" id="meterStatus">Waiting for audio...</div>
-        </div>
-
-        <div class="control-item">
-          <button id="testBtn" class="test-button">
-            <span class="test-icon">&#127925;</span>
-            <span class="test-text">Test Skip Action</span>
-          </button>
-        </div>
-
-        <div class="control-item">
-          <button id="debugBtn" class="debug-button">
-            <span class="debug-icon">&#128269;</span>
-            <span class="debug-text">Debug Page Elements</span>
-          </button>
         </div>
       </div>
-    </main>
+    </div>
 
-    <footer>
-      <div class="status" id="status">
-        Ready to scream
+    <!-- Mic Test Section -->
+    <div class="section">
+      <div class="setting-row">
+        <div class="setting-info">
+          <h3>Test Your Mic</h3>
+          <p>Check if your voice detection is working</p>
+        </div>
+        <button id="mic-test" class="mic-test-btn">
+          <span class="mic-icon">🎤</span>
+          Test Mic
+        </button>
       </div>
-    </footer>
+    </div>
+
+    <!-- Live Voice Meter -->
+    <div class="section" id="voice-meter-section" style="display: none;">
+      <div class="voice-meter-container">
+        <div class="meter-label">Scream level: <span id="scream-level">0%</span></div>
+        <div class="voice-meter">
+          <div class="meter-bar" id="meter-bar"></div>
+          <div class="meter-bars">
+            <div class="bar bar-1"></div>
+            <div class="bar bar-2"></div>
+            <div class="bar bar-3"></div>
+            <div class="bar bar-4"></div>
+            <div class="bar bar-5"></div>
+            <div class="bar bar-6"></div>
+            <div class="bar bar-7"></div>
+            <div class="bar bar-8"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>Made with ❤️ by Team Masala Dosa</p>
+    </div>
+  </div>
+
+  <!-- Ocha Indakuu Modal -->
+  <div id="ocha-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🎤 Ocha Indakuu! 🎤</h2>
+      </div>
+      <div class="modal-body">
+        <div class="animated-meter">
+          <div class="meter-circle">
+            <div class="meter-fill" id="modal-meter"></div>
+            <div class="meter-text">SCREAM!</div>
+          </div>
+        </div>
+        <div class="modal-message">
+          <p class="encouragement">You're this close to skipping the ad. Give it your best shot! 💥</p>
+          <p class="shout-text">Skip with Ocha!</p>
+        </div>
+      </div>
+      <button class="modal-close" id="modal-close">×</button>
+    </div>
   </div>
 
   <script src="popup.js"></script>

@@ -1,484 +1,239 @@
-// content.js - MV3 Content Script for YouTube Ad Detection
+// content.js - Skip-w-Ocha Voice-Powered Ad Skipper
 
-// Global error handler to catch any remaining issues
-window.addEventListener('error', (event) => {
-  if (event.error && event.error.message && event.error.message.includes('className.includes')) {
-    console.warn('Caught className.includes error, ignoring...');
-    event.preventDefault();
-    return false;
+// Part 1: AD DETECTION LOGIC - Using DOM observation only
+const adObserver = new MutationObserver((mutations) => {
+  // Use DOM observation to detect ads - no cross-origin requests
+  const adContainer = document.querySelector('.video-ads.ytp-ad-module');
+  const adShowing = document.querySelector('.ad-showing');
+  const skipButton = document.querySelector('.ytp-ad-skip-button') || 
+                    document.querySelector('.ytp-ad-skip-button-modest') ||
+                    document.querySelector('[aria-label="Skip ad"]') ||
+                    document.querySelector('[aria-label="Skip"]');
+  
+  // Check if any ad-related elements are present
+  if ((adContainer && adContainer.innerHTML.length > 0) || adShowing || skipButton) {
+    console.log("🎤 Ad detected! Time to scream!");
+    
+    // Start scream detection
+    startScreamDetection();
+    
+    adObserver.disconnect(); // Stop observing to prevent duplicate messages
   }
 });
 
-// State to prevent sending redundant messages
-let isAdPlaying = false;
-let currentUrl = window.location.href;
-let observer = null;
-
-// Test message to verify service worker communication
-setTimeout(() => {
-  console.log("🧪 Testing service worker communication...");
-  chrome.runtime.sendMessage({
-    type: 'TEST_MESSAGE',
-    payload: { message: 'Content script is working' }
-  }).then(response => {
-    console.log("✅ Service worker communication test successful:", response);
-  }).catch(error => {
-    console.error("❌ Service worker communication test failed:", error);
-  });
-}, 2000);
-
-// Function to check the current ad state and notify the service worker
-const checkAdState = () => {
-  try {
-    // Enhanced ad detection with multiple methods
-    const skipButton = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
-    const adOverlay = document.querySelector('.ytp-ad-player-overlay');
-    const adModule = document.querySelector('.video-ads.ytp-ad-module');
-    
-    // PRIORITY: If skip button is visible, consider ad as "active" regardless of play state
-    // This allows screaming to work even when ad is paused
-    const skipButtonVisible = !!skipButton;
-    const adContentPresent = !!(adOverlay && adOverlay.innerHTML.length > 0) || !!(adModule && adModule.children.length > 0);
-    
-    // Consider ad "active" if skip button is visible OR ad content is present
-    const currentlyPlaying = skipButtonVisible || adContentPresent;
-
-    console.log('Ad detection check:', {
-      skipButton: skipButtonVisible,
-      adOverlay: !!(adOverlay && adOverlay.innerHTML.length > 0),
-      adModule: !!(adModule && adModule.children.length > 0),
-      currentlyPlaying,
-      wasPlaying: isAdPlaying,
-      skipButtonVisible,
-      adContentPresent
-    });
-
-    if (currentlyPlaying !== isAdPlaying) {
-      isAdPlaying = currentlyPlaying;
-      console.log(`🎯 AD STATE CHANGED: ${isAdPlaying ? 'AD STARTED' : 'AD ENDED'}`);
-      
-      // Send message to service worker
-      chrome.runtime.sendMessage({
-        type: 'AD_STATE_CHANGED',
-        payload: { 
-          adPlaying: isAdPlaying,
-          skipButtonVisible: skipButtonVisible,
-          adContentPresent: adContentPresent
-        }
-      }).then(response => {
-        console.log('✅ AD_STATE_CHANGED message sent successfully:', response);
-      }).catch(error => {
-        console.error("❌ Error sending AD_STATE_CHANGED message:", error);
-      });
-    }
-  } catch (error) {
-    console.error("Error in checkAdState:", error);
-  }
-};
-
-// Function to initialize ad detection
-function initializeAdDetection() {
-  try {
-    console.log("🔄 Initializing ad detection...");
-    
-    // Clean up existing observer if any
-    if (observer) {
-      observer.disconnect();
-      observer = null;
-    }
-
-    // The target node to observe for mutations (the main video player)
-    const targetNode = document.getElementById('movie_player');
-
+// Start observing the main YouTube player container
+const targetNode = document.querySelector('ytd-player');
 if (targetNode) {
-      console.log("✅ YouTube player found, starting ad detection...");
-      
-      // Create an observer instance linked to a callback function
-      observer = new MutationObserver((mutationsList, observer) => {
-        try {
-          // Check for any relevant mutations
-          let shouldCheck = false;
-          for (const mutation of mutationsList) {
-            if (mutation.type === 'childList' || mutation.type === 'attributes') {
-              shouldCheck = true;
-              break;
+    adObserver.observe(targetNode, { childList: true, subtree: true });
+}
+
+// Part 2: SCREAM DETECTION LOGIC
+let isListening = false;
+let audioContext;
+let analyser;
+let microphone;
+let dataArray;
+
+// Listen for messages from background script
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'startScreamDetection' && !isListening) {
+    startScreamDetection();
+  }
+});
+
+function startScreamDetection() {
+  // Get extension settings first
+  chrome.storage.local.get(['enabled', 'sensitivity'], (data) => {
+    if (!data.enabled) {
+      console.log("Extension is disabled");
+      return;
+    }
+
+    const sensitivityThreshold = (data.sensitivity || 5) / 10; // Convert 1-10 to 0-1
+    console.log(`🎤 Listening for screams with sensitivity: ${sensitivityThreshold}`);
+
+    // Check if getUserMedia is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error("Microphone access not supported in this browser");
+      return;
+    }
+
+    // Request microphone access with explicit constraints
+    navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      } 
+    })
+      .then(function(stream) {
+        // Success - mic access granted
+        console.log("Microphone access granted for scream detection");
+        
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        microphone = audioContext.createMediaStreamSource(stream);
+        microphone.connect(analyser);
+
+        analyser.fftSize = 256;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        
+        isListening = true;
+        let lastScreamTime = 0;
+
+        const detectScream = () => {
+          if (!isListening) return;
+
+          analyser.getByteFrequencyData(dataArray);
+          
+          // Calculate average volume
+          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+          const volume = average / 255; // Normalize to 0-1
+
+          // Check if scream is loud enough
+          if (volume > sensitivityThreshold) {
+            const now = Date.now();
+            if (now - lastScreamTime > 2000) { // 2-second cooldown
+              lastScreamTime = now;
+              console.log(`💥 SCREAM DETECTED! Volume: ${Math.round(volume * 100)}%`);
+              
+              // Send scream detected message via chrome.runtime
+              chrome.runtime.sendMessage({ 
+                type: 'screamDetected',
+                volume: volume,
+                timestamp: now
+              });
+              
+              // Try to skip the ad
+              skipAd();
+              
+              // Stop listening
+              stopListening();
             }
           }
           
-          if (shouldCheck) {
-            checkAdState();
+          if (isListening) {
+            requestAnimationFrame(detectScream);
           }
-        } catch (error) {
-          console.error("Error in mutation observer:", error);
-        }
-      });
+        };
 
-      // Configuration of the observer
-      const config = {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'hidden'] // Observe changes that might hide/show ad elements
-      };
-
-      // Start observing the target node for configured mutations
-      observer.observe(targetNode, config);
-
-      // Initial check in case an ad is already playing on page load
-      checkAdState();
-    } else {
-      console.log("❌ YouTube player not found, will retry...");
-      // Retry after a short delay in case the player hasn't loaded yet
-      setTimeout(initializeAdDetection, 1000);
-    }
-  } catch (error) {
-    console.error("Error initializing ad detection:", error);
-  }
-}
-
-// Function to check if URL has changed (for SPA navigation)
-function checkUrlChange() {
-  try {
-    const newUrl = window.location.href;
-    if (newUrl !== currentUrl) {
-      console.log("🔄 URL changed, reinitializing ad detection...");
-      currentUrl = newUrl;
-      isAdPlaying = false; // Reset ad state
-      initializeAdDetection();
-    }
-  } catch (error) {
-    console.error("Error checking URL change:", error);
-  }
-}
-
-// Listen for messages from the service worker
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  try {
-    if (request.type === 'EXECUTE_SKIP_ACTION') {
-      console.log('🎯 Received EXECUTE_SKIP_ACTION command');
-      
-      // Use retry mechanism to find skip button
-      findSkipButtonWithRetry().then(skipButton => {
-        if (skipButton) {
-          const rect = skipButton.getBoundingClientRect();
-          console.log('✅ Found skip button at:', rect);
-          
-          // Try to click the button directly first (most reliable)
-          try {
-            console.log('🎯 Attempting direct click on skip button...');
-            skipButton.click();
-            console.log('✅ Direct click successful');
-            sendResponse({
-              success: true,
-              rect: rect,
-              method: 'direct'
-            });
-          } catch (clickError) {
-            console.log('⚠️ Direct click failed, providing coordinates for fallback:', clickError);
-            sendResponse({
-              success: true,
-              rect: rect,
-              method: 'coordinates'
-            });
-          }
+        detectScream();
+        
+      })
+      .catch(function(err) {
+        console.error("Microphone access denied for scream detection:", err);
+        
+        if (err.name === 'NotAllowedError') {
+          console.log("Microphone permission denied - user needs to allow access");
+        } else if (err.name === 'NotFoundError') {
+          console.log("No microphone found");
         } else {
-          console.log('❌ Skip button not found after retries');
-          sendResponse({ success: false, reason: 'Skip button not found after retries.' });
+          console.log("Microphone error:", err.message);
         }
       });
-      
-      return true; // Keep message channel open for async response
-    } else if (request.type === 'TEST_SKIP_BUTTON') {
-      console.log('🧪 Received TEST_SKIP_BUTTON command');
-      
-      // Use retry mechanism for test as well
-      findSkipButtonWithRetry().then(skipButton => {
-        if (skipButton) {
-          const testResult = testSkipButtonFunctionality();
-          sendResponse(testResult);
-        } else {
-          sendResponse({ success: false, reason: 'No skip button found after retries' });
-        }
-      });
-      
-      return true; // Keep message channel open for async response
-    } else if (request.type === 'DEBUG_PAGE_ELEMENTS') {
-      console.log('🔍 Received DEBUG_PAGE_ELEMENTS command');
-      const debugResult = debugPageElements();
-      sendResponse({ success: true, debugResult });
-      return true;
-    }
-  } catch (error) {
-    console.error("Error handling message:", error);
-    sendResponse({ success: false, reason: 'Error processing request.' });
-    return true;
-  }
-});
-
-// Function to find the skip button using multiple selectors for robustness
-function findSkipButton() {
-  try {
-    const selectors = [
-      // Modern YouTube skip button selectors
-      '.ytp-ad-skip-button-modern',
-      '.ytp-ad-skip-button',
-      '.ytp-ad-skip-button-container button',
-      '.ytp-ad-skip-button-slot button',
-      
-      // Generic skip button selectors
-      '[aria-label*="Skip"]',
-      '[aria-label*="skip"]',
-      'button[aria-label*="Skip"]',
-      'button[aria-label*="skip"]',
-      
-      // Additional selectors for different ad types
-      '.ytp-ad-skip-button-container',
-      '.ytp-ad-skip-button-slot',
-      '[data-target-id="skip-button"]',
-      '[data-target-id="skip-button-modern"]',
-      
-      // Text-based selectors
-      'button:contains("Skip")',
-      'button:contains("skip")',
-      '[role="button"]:contains("Skip")',
-      
-      // Shadow DOM and iframe selectors (if needed)
-      'ytd-player * .ytp-ad-skip-button',
-      'ytd-player * [aria-label*="Skip"]'
-    ];
-    
-    console.log('🔍 Searching for skip button with selectors...');
-    
-    // First, try standard selectors
-    for (const selector of selectors) {
-      try {
-        const button = document.querySelector(selector);
-        if (button) {
-          console.log('✅ Found skip button with selector:', selector);
-          console.log('✅ Button details:', {
-            tagName: button.tagName,
-            className: button.className,
-            id: button.id,
-            textContent: button.textContent?.trim(),
-            ariaLabel: button.getAttribute('aria-label'),
-            visible: button.offsetParent !== null,
-            rect: button.getBoundingClientRect()
-          });
-          return button;
-        }
-      } catch (error) {
-        console.log('⚠️ Selector failed:', selector, error);
-      }
-    }
-    
-    // If standard selectors fail, try more aggressive search
-    console.log('🔍 Standard selectors failed, trying aggressive search...');
-    
-    // Search all buttons for skip-related text
-    const allButtons = document.querySelectorAll('button');
-    for (const button of allButtons) {
-      const text = button.textContent?.toLowerCase() || '';
-      const ariaLabel = button.getAttribute('aria-label')?.toLowerCase() || '';
-      
-      if (text.includes('skip') || ariaLabel.includes('skip')) {
-        console.log('✅ Found skip button via text search:', {
-          tagName: button.tagName,
-          className: button.className,
-          textContent: button.textContent?.trim(),
-          ariaLabel: button.getAttribute('aria-label'),
-          visible: button.offsetParent !== null,
-          rect: button.getBoundingClientRect()
-        });
-        return button;
-      }
-    }
-    
-    // Search for any element with skip-related attributes
-    const skipElements = document.querySelectorAll('[aria-label*="Skip"], [aria-label*="skip"]');
-    for (const element of skipElements) {
-      if (element.tagName === 'BUTTON' || element.onclick || element.getAttribute('role') === 'button') {
-        console.log('✅ Found skip button via attribute search:', {
-          tagName: element.tagName,
-          className: element.className,
-          textContent: element.textContent?.trim(),
-          ariaLabel: element.getAttribute('aria-label'),
-          visible: element.offsetParent !== null,
-          rect: element.getBoundingClientRect()
-        });
-        return element;
-      }
-    }
-    
-    console.log('❌ No skip button found with any method');
-    return null;
-  } catch (error) {
-    console.error("Error finding skip button:", error);
-    return null;
-  }
-}
-
-// Comprehensive test function for skip button functionality
-function testSkipButtonFunctionality() {
-  console.log('🧪 Testing skip button functionality...');
-  
-  // Test 1: Find skip button
-  const skipButton = findSkipButton();
-  if (!skipButton) {
-    console.log('❌ TEST FAILED: No skip button found');
-    return { success: false, reason: 'No skip button found' };
-  }
-  
-  // Test 2: Check button properties
-  const rect = skipButton.getBoundingClientRect();
-  console.log('✅ Button found at:', rect);
-  
-  // Test 3: Check if button is visible and clickable
-  if (rect.width === 0 || rect.height === 0) {
-    console.log('❌ TEST FAILED: Button has zero dimensions');
-    return { success: false, reason: 'Button has zero dimensions' };
-  }
-  
-  if (skipButton.offsetParent === null) {
-    console.log('❌ TEST FAILED: Button is not visible');
-    return { success: false, reason: 'Button is not visible' };
-  }
-  
-  // Test 4: Try to click the button
-  try {
-    console.log('🎯 Attempting to click skip button...');
-    skipButton.click();
-    console.log('✅ TEST PASSED: Direct click successful');
-    return { success: true, method: 'direct', rect: rect };
-  } catch (clickError) {
-    console.log('⚠️ Direct click failed:', clickError);
-    console.log('✅ TEST PARTIAL: Button found but direct click failed, coordinates available');
-    return { success: true, method: 'coordinates', rect: rect, error: clickError.message };
-  }
-}
-
-// Enhanced skip button finder with retry mechanism
-function findSkipButtonWithRetry(maxRetries = 5, delay = 500) {
-  return new Promise((resolve) => {
-    let attempts = 0;
-    
-    const tryFind = () => {
-      attempts++;
-      console.log(`🔍 Attempt ${attempts}/${maxRetries} to find skip button...`);
-      
-      const skipButton = findSkipButton();
-      if (skipButton) {
-        console.log(`✅ Found skip button on attempt ${attempts}`);
-        resolve(skipButton);
-        return;
-      }
-      
-      if (attempts >= maxRetries) {
-        console.log('❌ Failed to find skip button after all attempts');
-        resolve(null);
-        return;
-      }
-      
-      console.log(`⏰ Retrying in ${delay}ms...`);
-      setTimeout(tryFind, delay);
-    };
-    
-    tryFind();
   });
 }
 
-// Debug function to help identify page elements
-function debugPageElements() {
-  console.log('🔍 DEBUG: Analyzing page elements...');
-  
-  // Check for common ad-related elements
-  const adElements = {
-    'ytp-ad-skip-button': document.querySelectorAll('.ytp-ad-skip-button'),
-    'ytp-ad-skip-button-modern': document.querySelectorAll('.ytp-ad-skip-button-modern'),
-    'ytp-ad-skip-button-container': document.querySelectorAll('.ytp-ad-skip-button-container'),
-    'ytp-ad-skip-button-slot': document.querySelectorAll('.ytp-ad-skip-button-slot'),
-    'ytp-ad-player-overlay': document.querySelectorAll('.ytp-ad-player-overlay'),
-    'video-ads.ytp-ad-module': document.querySelectorAll('.video-ads.ytp-ad-module')
-  };
-  
-  console.log('📊 Ad elements found:', adElements);
-  
-  // Check all buttons for skip-related content
-  const allButtons = document.querySelectorAll('button');
-  const skipRelatedButtons = [];
-  
-  for (const button of allButtons) {
-    const text = button.textContent?.toLowerCase() || '';
-    const ariaLabel = button.getAttribute('aria-label')?.toLowerCase() || '';
-    const className = button.className || '';
-    
-    if (text.includes('skip') || ariaLabel.includes('skip') || className.includes('skip')) {
-      skipRelatedButtons.push({
-        element: button,
-        textContent: button.textContent?.trim(),
-        ariaLabel: button.getAttribute('aria-label'),
-        className: button.className,
-        visible: button.offsetParent !== null,
-        rect: button.getBoundingClientRect()
-      });
-    }
+function stopListening() {
+  if (microphone && microphone.mediaStream) {
+    microphone.mediaStream.getTracks().forEach(track => track.stop());
   }
-  
-  console.log('📊 Skip-related buttons found:', skipRelatedButtons);
-  
-  // Check for any elements with skip-related attributes
-  const skipElements = document.querySelectorAll('[aria-label*="Skip"], [aria-label*="skip"]');
-  console.log('📊 Elements with skip attributes:', Array.from(skipElements).map(el => ({
-    tagName: el.tagName,
-    className: el.className,
-    ariaLabel: el.getAttribute('aria-label'),
-    textContent: el.textContent?.trim(),
-    visible: el.offsetParent !== null
-  })));
-  
-  return { adElements, skipRelatedButtons, skipElements: Array.from(skipElements) };
+  if (audioContext) {
+    audioContext.close();
+  }
+  isListening = false;
+  console.log("🎤 Stopped listening for screams");
 }
 
-// Initialize when script loads
-console.log("🚀 Content script loaded, initializing...");
-
-// Send immediate test message to verify service worker communication
-chrome.runtime.sendMessage({
-  type: 'TEST_MESSAGE',
-  payload: { message: 'Content script just loaded' }
-}).then(response => {
-  console.log("✅ Immediate service worker test successful:", response);
-}).catch(error => {
-  console.error("❌ Immediate service worker test failed:", error);
-});
-
-initializeAdDetection();
-
-// Check for URL changes periodically (for SPA navigation)
-setInterval(checkUrlChange, 1000);
-
-// Also listen for popstate events (back/forward navigation)
-window.addEventListener('popstate', () => {
-  setTimeout(checkUrlChange, 100);
-});
-
-// Listen for pushstate/replacestate events (programmatic navigation)
-const originalPushState = history.pushState;
-const originalReplaceState = history.replaceState;
-
-history.pushState = function(...args) {
+function skipAd() {
   try {
-    originalPushState.apply(history, args);
-    setTimeout(checkUrlChange, 100);
+    // Use multiple selectors for different ad types
+    const skipButton = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, [aria-label="Skip ad"], [aria-label="Skip"]');
+    
+    if (skipButton) {
+      console.log("⏭️ Clicking skip button!");
+      skipButton.click();
+      showSuccessMessage();
+    } else {
+      // Fallback: try to find any skip-related button
+      const buttons = document.querySelectorAll('button');
+      for (const button of buttons) {
+        const text = button.textContent.toLowerCase();
+        if (text.includes('skip') || text.includes('ad')) {
+          console.log("⏭️ Found potential skip button:", button.textContent);
+          button.click();
+          showSuccessMessage();
+          break;
+        }
+      }
+    }
+    
   } catch (error) {
-    console.error("Error in pushState:", error);
+    console.error("❌ Error skipping ad:", error);
   }
-};
+}
 
-history.replaceState = function(...args) {
-  try {
-    originalReplaceState.apply(history, args);
-    setTimeout(checkUrlChange, 100);
-  } catch (error) {
-    console.error("Error in replaceState:", error);
+// Periodic scan for skip buttons (backup method)
+function startPeriodicScan() {
+  setInterval(() => {
+    const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+    if (skipBtn && isListening) {
+      console.log("⏭️ Periodic scan found skip button!");
+      skipBtn.click();
+      showSuccessMessage();
+    }
+  }, 1000);
+}
+
+function showSuccessMessage() {
+  // Create a beautiful success notification
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 12px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    z-index: 10000;
+    box-shadow: 0 8px 32px rgba(76, 175, 80, 0.4);
+    animation: slideIn 0.3s ease;
+  `;
+  notification.innerHTML = '🎉 Ad Skipped Successfully! 🎉';
+  
+  document.body.appendChild(notification);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 300);
+  }, 3000);
+}
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+    to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   }
-};
+  @keyframes slideOut {
+    from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    to { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
+
+// Start periodic scan as backup
+startPeriodicScan();
+
+console.log("🎤 Skip-w-Ocha content script loaded! Ready to detect ads and screams!");

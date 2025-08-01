@@ -1,21 +1,26 @@
 {
   "manifest_version": 3,
-  "name": "Scream to Skip",
+  "name": "Skip-w-Ocha",
   "version": "1.0",
-  "description": "Skip YouTube ads by screaming!",
-  "permissions": ["storage", "scripting", "debugger", "offscreen"],
+  "description": "Skip YouTube ads with the power of your voice! Made with love by Team Masala Dosa",
+  "permissions": ["storage", "scripting", "debugger"],
   "host_permissions": ["*://*.youtube.com/*"],
   "background": {
-    "service_worker": "service-worker.js"
+    "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_title": "Skip-w-Ocha - Voice-Powered Ad Skipper"
   },
   "content_scripts": [
     {
       "matches": ["*://*.youtube.com/*"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+      "js": ["content.js"]
     }
-  ]
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
 }

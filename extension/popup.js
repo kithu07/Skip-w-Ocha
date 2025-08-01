@@ -1,351 +1,269 @@
-// popup.js - UI Logic for Scream to Skip Extension
-
+// DOM Elements
 const toggle = document.getElementById('toggle');
 const sensitivity = document.getElementById('sensitivity');
-const sensitivityValue = document.getElementById('sensitivityValue');
-const status = document.getElementById('status');
-const statusDot = document.getElementById('statusDot');
-const testBtn = document.getElementById('testBtn');
-const debugBtn = document.getElementById('debugBtn');
+const sensitivityDisplay = document.getElementById('sensitivity-display');
+const micTestBtn = document.getElementById('mic-test');
+const voiceMeterSection = document.getElementById('voice-meter-section');
+const meterBar = document.getElementById('meter-bar');
+const screamLevel = document.getElementById('scream-level');
+const modal = document.getElementById('ocha-modal');
+const modalClose = document.getElementById('modal-close');
+const modalMeter = document.getElementById('modal-meter');
 
-// Audio meter elements
-const audioLevel = document.getElementById('audioLevel');
-const levelIndicator = document.getElementById('levelIndicator');
-const thresholdLine = document.getElementById('thresholdLine');
-const meterStatus = document.getElementById('meterStatus');
-
-let audioUpdateInterval = null;
-let currentSettings = { isEnabled: true, sensitivity: 0.5 };
-let retryCount = 0;
-const maxRetries = 3;
+// Audio context and analyzer
+let audioContext;
+let analyser;
+let microphone;
+let dataArray;
+let isListening = false;
 
 // Load and display saved settings when popup opens
-function loadSettings() {
-  try {
-    console.log("🔄 Loading settings...");
-    chrome.storage.local.get(['settings'], (result) => {
-      try {
-        if (chrome.runtime.lastError) {
-          console.error("❌ Storage error:", chrome.runtime.lastError);
-          // Use defaults if storage fails
-          currentSettings = { isEnabled: true, sensitivity: 0.5 };
-          toggle.checked = true;
-          sensitivity.value = 0.5;
-          updateUI();
-          startAudioMeterUpdates();
-          return;
-        }
+chrome.storage.local.get(['enabled', 'sensitivity'], (data) => {
+  toggle.checked = data.enabled ?? true; // Enabled by default
+  sensitivity.value = data.sensitivity ?? 5; // Default sensitivity 5
+  sensitivityDisplay.textContent = sensitivity.value;
+});
 
-        const settings = result.settings || {};
-        currentSettings = {
-          isEnabled: settings.isEnabled !== false,
-          sensitivity: settings.sensitivity || 0.5
-        };
-
-        toggle.checked = currentSettings.isEnabled;
-        sensitivity.value = currentSettings.sensitivity;
-        updateUI();
-        startAudioMeterUpdates();
-        console.log("✅ Settings loaded successfully");
-      } catch (error) {
-        console.error("❌ Error processing settings:", error);
-        // Set defaults if there's an error
-        currentSettings = { isEnabled: true, sensitivity: 0.5 };
-        toggle.checked = true;
-        sensitivity.value = 0.5;
-        updateUI();
-        startAudioMeterUpdates();
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error loading settings:", error);
-    // Set defaults if there's an error
-    currentSettings = { isEnabled: true, sensitivity: 0.5 };
-    toggle.checked = true;
-    sensitivity.value = 0.5;
-    updateUI();
-    startAudioMeterUpdates();
-  }
-}
-
-// Start audio meter updates
-function startAudioMeterUpdates() {
-  if (audioUpdateInterval) {
-    clearInterval(audioUpdateInterval);
-  }
-
-  // Update audio meter every 200ms (reduced frequency)
-  audioUpdateInterval = setInterval(async () => {
-    try {
-      // Get audio level from offscreen document
-      const contexts = await chrome.runtime.getContexts({
-        contextTypes: ['OFFSCREEN_DOCUMENT']
-      });
-
-      if (contexts.length > 0) {
-        // Send message directly to offscreen document for audio level
-        chrome.runtime.sendMessage({ type: 'GET_AUDIO_LEVEL' }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.warn("⚠️ Audio level request failed:", chrome.runtime.lastError);
-            updateAudioMeter(0, currentSettings.sensitivity, 'No audio data');
-            retryCount = 0; // Reset retry count on successful error handling
-          } else if (response && response.success) {
-            updateAudioMeter(response.audioLevel, currentSettings.sensitivity, response.status);
-            retryCount = 0; // Reset retry count on success
-          } else {
-            updateAudioMeter(0, currentSettings.sensitivity, 'Waiting for audio...');
-            retryCount = 0; // Reset retry count on successful response
-          }
-        });
-      } else {
-        updateAudioMeter(0, currentSettings.sensitivity, 'Audio not active');
-        retryCount = 0; // Reset retry count when no offscreen document
-      }
-    } catch (error) {
-      console.error("❌ Error updating audio meter:", error);
-      updateAudioMeter(0, 0.5, 'Error');
-      retryCount++;
-      
-      // Stop retrying if we've exceeded max retries
-      if (retryCount >= maxRetries) {
-        console.warn("⚠️ Max retries exceeded, stopping audio meter updates");
-        clearInterval(audioUpdateInterval);
-        audioUpdateInterval = null;
-      }
-    }
-  }, 200);
-}
-
-// Update audio meter display
-function updateAudioMeter(level, sensitivity, statusText) {
-  try {
-    // Update level display
-    audioLevel.textContent = level.toFixed(3);
-
-    // Update level indicator (0-100%)
-    const levelPercent = Math.min(level * 100, 100);
-    levelIndicator.style.width = levelPercent + '%';
-
-    // Update threshold line position
-    const threshold = 1.0 - sensitivity;
-    const thresholdPercent = Math.min(threshold * 100, 100);
-    thresholdLine.style.left = thresholdPercent + '%';
-
-    // Update status
-    meterStatus.textContent = statusText;
-
-    // Change level indicator color based on level vs threshold
-    if (level > threshold) {
-      levelIndicator.style.background = '#ef4444'; // Red when above threshold
-      meterStatus.style.color = '#ef4444';
-    } else if (level > threshold * 0.8) {
-      levelIndicator.style.background = '#f59e0b'; // Orange when close to threshold
-      meterStatus.style.color = '#f59e0b';
-    } else {
-      levelIndicator.style.background = 'linear-gradient(90deg, #10b981, #f59e0b, #ef4444)';
-      meterStatus.style.color = 'white';
-    }
-  } catch (error) {
-    console.error("❌ Error updating audio meter display:", error);
-  }
-}
-
-// Update UI based on current settings
-function updateUI() {
-  try {
-    // Update status text and dot
-    if (currentSettings.isEnabled) {
-      status.textContent = 'Extension is enabled';
-      statusDot.className = 'status-dot enabled';
-    } else {
-      status.textContent = 'Extension is disabled';
-      statusDot.className = 'status-dot disabled';
-    }
-
-    // Update sensitivity label
-    sensitivityValue.textContent = currentSettings.sensitivity.toFixed(1);
-  } catch (error) {
-    console.error("❌ Error updating UI:", error);
-  }
-}
-
-// Save settings to storage
-function saveSettings() {
-  try {
-    console.log("💾 Saving settings:", currentSettings);
-    chrome.storage.local.set({ settings: currentSettings }, () => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error saving settings:", chrome.runtime.lastError);
-      } else {
-        console.log("✅ Settings saved successfully");
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error in saveSettings:", error);
-  }
-}
-
-// Event listeners
+// Save settings whenever they are changed
 toggle.addEventListener('change', () => {
-  try {
-    currentSettings.isEnabled = toggle.checked;
-    updateUI();
-    saveSettings();
-    
-    // Send settings update to service worker
-    chrome.runtime.sendMessage({
-      type: 'SETTINGS_UPDATED',
-      payload: currentSettings
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error sending settings update:", chrome.runtime.lastError);
-      } else {
-        console.log("✅ Settings update sent successfully:", response);
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error handling toggle change:", error);
+  chrome.storage.local.set({ enabled: toggle.checked });
+  
+  // Visual feedback
+  if (toggle.checked) {
+    showNotification('Extension enabled! 🎤');
+  } else {
+    showNotification('Extension disabled');
   }
 });
 
 sensitivity.addEventListener('input', () => {
-  try {
-    currentSettings.sensitivity = parseFloat(sensitivity.value);
-    updateUI();
-    saveSettings();
-    
-    // Send settings update to service worker
-    chrome.runtime.sendMessage({
-      type: 'SETTINGS_UPDATED',
-      payload: currentSettings
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error sending settings update:", chrome.runtime.lastError);
-      } else {
-        console.log("✅ Settings update sent successfully:", response);
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error handling sensitivity change:", error);
+  const value = parseInt(sensitivity.value);
+  sensitivityDisplay.textContent = value;
+  chrome.storage.local.set({ sensitivity: value });
+  
+  // Visual feedback
+  sensitivityDisplay.style.transform = 'scale(1.2)';
+  setTimeout(() => {
+    sensitivityDisplay.style.transform = 'scale(1)';
+  }, 200);
+});
+
+// Mic test functionality
+micTestBtn.addEventListener('click', () => {
+  if (isListening) {
+    stopListening();
+    micTestBtn.innerHTML = '<span class="mic-icon">🎤</span>Test Mic';
+    micTestBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+  } else {
+    startListening();
   }
 });
 
-testBtn.addEventListener('click', () => {
-  try {
-    console.log("🧪 Test button clicked");
-    testBtn.disabled = true;
-    const testText = testBtn.querySelector('.test-text');
-    testText.textContent = 'Testing...';
-    
-    // Send test command to content script
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error querying tabs:", chrome.runtime.lastError);
-        testBtn.disabled = false;
-        testText.textContent = 'Test Skip Action';
-        return;
+// Modal close
+modalClose.addEventListener('click', () => {
+  modal.style.display = 'none';
+});
+
+// Close modal when clicking outside
+modal.addEventListener('click', (e) => {
+  if (e.target === modal) {
+    modal.style.display = 'none';
+  }
+});
+
+// Start listening to microphone
+function startListening() {
+  console.log("Requesting microphone access...");
+  
+  // Check if getUserMedia is available
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showNotification('Microphone access not supported in this browser! 😔');
+    return;
+  }
+
+  // Request microphone access in popup context
+  navigator.mediaDevices.getUserMedia({ 
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    } 
+  })
+    .then(function(stream) {
+      console.log("Microphone access granted successfully");
+      
+      // Create audio context
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      
+      microphone = audioContext.createMediaStreamSource(stream);
+      microphone.connect(analyser);
+      
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      isListening = true;
+      
+      voiceMeterSection.style.display = 'block';
+      updateMeter();
+      
+      micTestBtn.innerHTML = '<span class="mic-icon">⏹️</span>Stop Test';
+      micTestBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%)';
+      
+      showNotification('Microphone activated! 🎤');
+    })
+    .catch(function(err) {
+      console.error("Microphone access denied:", err);
+      
+      let errorMessage = 'Microphone access denied! ';
+      if (err.name === 'NotAllowedError') {
+        errorMessage += 'Please allow microphone access in your browser settings.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage += 'No microphone found. Please connect a microphone.';
+      } else {
+        errorMessage += err.message;
       }
       
-      if (tabs.length > 0) {
-        // First test if skip button exists
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'TEST_SKIP_BUTTON' }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error("❌ Error sending test message:", chrome.runtime.lastError);
-            testText.textContent = 'Error: No response';
-          } else if (response && response.success) {
-            console.log("✅ Skip button test successful:", response);
-            if (response.method === 'direct') {
-              testText.textContent = 'Skip button clicked!';
-            } else {
-              testText.textContent = 'Skip button found';
-            }
-          } else {
-            console.log("❌ Skip button test failed:", response?.reason);
-            testText.textContent = response?.reason || 'No skip button found';
-          }
-          
-          setTimeout(() => {
-            testBtn.disabled = false;
-            testText.textContent = 'Test Skip Action';
-          }, 2000);
-        });
-      } else {
-        console.error("❌ No active tab found");
-        testText.textContent = 'No active tab';
-        setTimeout(() => {
-          testBtn.disabled = false;
-          testText.textContent = 'Test Skip Action';
-        }, 2000);
-      }
+      showNotification(errorMessage + ' 😔');
     });
-  } catch (error) {
-    console.error("❌ Error handling test button click:", error);
-    testBtn.disabled = false;
-    const testText = testBtn.querySelector('.test-text');
-    testText.textContent = 'Test Skip Action';
-  }
-});
+}
 
-// Debug button functionality
-debugBtn.addEventListener('click', () => {
-  try {
-    console.log("🔍 Debug button clicked");
-    debugBtn.disabled = true;
-    const debugText = debugBtn.querySelector('.debug-text');
-    debugText.textContent = 'Debugging...';
-    
-    // Send debug command to content script
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error querying tabs:", chrome.runtime.lastError);
-        debugBtn.disabled = false;
-        debugText.textContent = 'Debug Page Elements';
-        return;
+// Stop listening to microphone
+function stopListening() {
+  if (microphone && microphone.mediaStream) {
+    microphone.mediaStream.getTracks().forEach(track => track.stop());
+  }
+  if (audioContext) {
+    audioContext.close();
+  }
+  
+  isListening = false;
+  voiceMeterSection.style.display = 'none';
+  meterBar.style.width = '0%';
+  screamLevel.textContent = '0%';
+  
+  showNotification('Microphone stopped');
+}
+
+// Update voice meter
+function updateMeter() {
+  if (!isListening) return;
+  
+  analyser.getByteFrequencyData(dataArray);
+  
+  // Calculate average volume
+  const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+  const volume = Math.min(100, (average / 255) * 100);
+  
+  // Update meter bar
+  meterBar.style.width = volume + '%';
+  screamLevel.textContent = Math.round(volume) + '%';
+  
+  // Update modal meter if open
+  if (modal.style.display === 'flex') {
+    modalMeter.style.transform = `scale(${1 + volume / 100})`;
+  }
+  
+  // Continue updating
+  requestAnimationFrame(updateMeter);
+}
+
+// Show notification
+function showNotification(message) {
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    max-width: 300px;
+    word-wrap: break-word;
+  `;
+  notification.textContent = message;
+  
+  document.body.appendChild(notification);
+  
+  // Animate in
+  setTimeout(() => {
+    notification.style.transform = 'translateX(0)';
+  }, 100);
+  
+  // Remove after 4 seconds for longer messages
+  setTimeout(() => {
+    notification.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
       }
-      
-      if (tabs.length > 0) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'DEBUG_PAGE_ELEMENTS' }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error("❌ Error sending debug message:", chrome.runtime.lastError);
-            debugText.textContent = 'Error: No response';
-          } else if (response && response.success) {
-            console.log("✅ Debug successful:", response.debugResult);
-            debugText.textContent = 'Debug complete!';
-          } else {
-            console.log("❌ Debug failed:", response?.reason);
-            debugText.textContent = response?.reason || 'Debug failed';
-          }
-          
-          setTimeout(() => {
-            debugBtn.disabled = false;
-            debugText.textContent = 'Debug Page Elements';
-          }, 2000);
-        });
-      } else {
-        console.error("❌ No active tab found");
-        debugText.textContent = 'No active tab';
-        setTimeout(() => {
-          debugBtn.disabled = false;
-          debugText.textContent = 'Debug Page Elements';
-        }, 2000);
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error handling debug button click:", error);
-    debugBtn.disabled = false;
-    const debugText = debugBtn.querySelector('.debug-text');
-    debugText.textContent = 'Debug Page Elements';
+    }, 300);
+  }, 4000);
+}
+
+// Function to show Ocha Indakuu modal (called from content script)
+window.showOchaModal = function() {
+  modal.style.display = 'flex';
+  
+  // Animate the meter
+  let meterScale = 1;
+  const animateMeter = () => {
+    meterScale = 1 + Math.random() * 0.5;
+    modalMeter.style.transform = `scale(${meterScale})`;
+    setTimeout(animateMeter, 100);
+  };
+  animateMeter();
+  
+  // Auto-close after 5 seconds
+  setTimeout(() => {
+    modal.style.display = 'none';
+  }, 5000);
+};
+
+// Listen for postMessage events from content script
+window.addEventListener('message', (event) => {
+  // Verify origin for security
+  if (event.origin !== window.location.origin && !event.origin.includes('youtube.com')) {
+    return;
+  }
+  
+  if (event.data && event.data.type === 'adDetected' && event.data.action === 'showOchaModal') {
+    window.showOchaModal();
+  }
+  
+  if (event.data && event.data.type === 'screamDetected') {
+    console.log('Scream detected with volume:', event.data.volume);
+    // Handle scream detection if needed
   }
 });
 
-// Clean up interval when popup closes
-window.addEventListener('beforeunload', () => {
-  if (audioUpdateInterval) {
-    clearInterval(audioUpdateInterval);
-    audioUpdateInterval = null;
+// Listen for messages from content script via chrome.runtime
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'showOchaModal') {
+    window.showOchaModal();
+  }
+  
+  if (request.type === 'screamDetected') {
+    console.log('Scream detected with volume:', request.volume);
+    // Handle scream detection if needed
   }
 });
 
-// Initialize popup
-console.log("🚀 Popup initializing...");
-loadSettings();
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    modal.style.display = 'none';
+  }
+});
+
+// Initialize with a welcome message
+setTimeout(() => {
+  showNotification('Welcome to Skip-w-Ocha! 🎤');
+}, 500);

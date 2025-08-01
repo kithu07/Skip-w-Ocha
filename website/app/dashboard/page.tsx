@@ -34,14 +34,14 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg flex items-center justify-center">
+          <div className="flex items-center gap-3 animate-slide-in-left">
+            <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg flex items-center justify-center animate-pulse-custom">
               <Mic className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-slate-800">Ocha Control Room</h1>
           </div>
           <Link href="/">
-            <Button variant="outline" className="font-medium bg-transparent">
+            <Button variant="outline" className="font-medium bg-transparent hover-pulse animate-slide-in-right">
               <Home className="mr-2 h-4 w-4" />
               Back Home
             </Button>
@@ -51,17 +51,32 @@ export default function Dashboard() {
 
       <div className="container mx-auto px-6 py-8">
         {/* Welcome Section */}
-        <div className="mb-8">
+        <div className="mb-8 animate-slide-in-bottom">
           <h2 className="text-3xl font-bold text-slate-800 mb-2">Welcome back, Voice Maker! 🎤</h2>
           <p className="text-slate-600">Monitor your ocha kond skipping performance and fine-tune your settings</p>
         </div>
 
+        {/* Audio Visualizer */}
+        <div className="mb-8 flex justify-center">
+          <div className="audio-visualizer">
+            <div className="audio-bar audio-bar-1"></div>
+            <div className="audio-bar audio-bar-2"></div>
+            <div className="audio-bar audio-bar-3"></div>
+            <div className="audio-bar audio-bar-4"></div>
+            <div className="audio-bar audio-bar-5"></div>
+            <div className="audio-bar audio-bar-4"></div>
+            <div className="audio-bar audio-bar-3"></div>
+            <div className="audio-bar audio-bar-2"></div>
+            <div className="audio-bar audio-bar-1"></div>
+          </div>
+        </div>
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-lg animate-float stagger-1 hover-float">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-slate-600">Max Volume Today</CardTitle>
-              <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg flex items-center justify-center animate-pulse-custom">
                 <Flame className="h-4 w-4 text-white" />
               </div>
             </CardHeader>
@@ -71,10 +86,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-lg animate-float stagger-2 hover-float">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-slate-600">Total Screams</CardTitle>
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center animate-pulse-custom">
                 <Volume2 className="h-4 w-4 text-white" />
               </div>
             </CardHeader>
@@ -84,10 +99,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-lg animate-float stagger-3 hover-float">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-slate-600">Ads Defeated</CardTitle>
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center animate-pulse-custom">
                 <Zap className="h-4 w-4 text-white" />
               </div>
             </CardHeader>
@@ -97,10 +112,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-lg animate-float stagger-4 hover-float">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-slate-600">Peak Performance</CardTitle>
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center animate-pulse-custom">
                 <Clock className="h-4 w-4 text-white" />
               </div>
             </CardHeader>
@@ -112,10 +127,10 @@ export default function Dashboard() {
         </div>
 
         {/* Chart Section */}
-        <Card className="mb-8 border-0 shadow-lg">
+        <Card className="mb-8 border-0 shadow-lg animate-slide-in-bottom">
           <CardHeader>
             <CardTitle className="text-xl font-semibold text-slate-800 flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-blue-500" />
+              <TrendingUp className="h-5 w-5 text-blue-500 animate-pulse-custom" />
               Voice Activity Over Time
             </CardTitle>
             <CardDescription className="text-slate-600">
@@ -159,10 +174,10 @@ export default function Dashboard() {
 
         {/* Controls Section */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-lg hover-float">
             <CardHeader>
               <CardTitle className="text-xl font-semibold text-slate-800 flex items-center gap-2">
-                <Settings className="h-5 w-5 text-slate-600" />
+                <Settings className="h-5 w-5 text-slate-600 animate-rotate" />
                 Microphone Sensitivity
               </CardTitle>
               <CardDescription className="text-slate-600">
@@ -183,7 +198,7 @@ export default function Dashboard() {
                   className="w-full"
                 />
                 <div className="text-center">
-                  <Badge variant="secondary" className="text-lg px-4 py-2">
+                  <Badge variant="secondary" className="text-lg px-4 py-2 animate-pulse-custom">
                     {micSensitivity[0]}% Sensitivity
                   </Badge>
                 </div>
@@ -191,10 +206,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-lg hover-float">
             <CardHeader>
               <CardTitle className="text-xl font-semibold text-slate-800 flex items-center gap-2">
-                <Volume2 className="h-5 w-5 text-slate-600" />
+                <Volume2 className="h-5 w-5 text-slate-600 animate-pulse-custom" />
                 Extension Status
               </CardTitle>
               <CardDescription className="text-slate-600">
@@ -213,13 +228,29 @@ export default function Dashboard() {
               </div>
 
               {isEnabled && (
-                <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border border-green-200">
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border border-green-200 animate-glow">
                   <div className="text-center text-green-700 font-medium">🎤 Ready for your next battle cry!</div>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
+
+        {/* Sound Wave Indicator */}
+        {isEnabled && (
+          <div className="text-center mb-8 animate-slide-in-bottom">
+            <div className="inline-flex items-center gap-2 bg-white p-4 rounded-full shadow-lg">
+              <div className="flex items-end gap-1 h-8">
+                <div className="w-1 bg-red-500 rounded-full animate-sound-wave"></div>
+                <div className="w-1 bg-orange-500 rounded-full animate-sound-wave-2"></div>
+                <div className="w-1 bg-yellow-500 rounded-full animate-sound-wave-3"></div>
+                <div className="w-1 bg-orange-500 rounded-full animate-sound-wave-2"></div>
+                <div className="w-1 bg-red-500 rounded-full animate-sound-wave"></div>
+              </div>
+              <span className="text-sm font-medium text-slate-700 ml-2">Listening...</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

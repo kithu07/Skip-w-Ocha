@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Scream to Skip",
+    "version": "1.0",
+    "description": "Skip YouTube ads by screaming!",
+    "permissions": ["storage", "scripting", "debugger"],
+    "host_permissions": ["*://*.youtube.com/*"],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "action": {
+      "default_popup": "popup.html"
+    },
+    "content_scripts": [
+      {
+        "matches": ["*://*.youtube.com/*"],
+        "js": ["content.js"]
+      }
+    ],
+    "offscreen": {
+      "path": "offscreen.html",
+      "reasons": ["USER_MEDIA"],
+      "justification": "Required to process microphone audio for scream detection."
+    }
+  }

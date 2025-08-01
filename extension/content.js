@@ -1,4 +1,161 @@
-// content.js - MV3 Content Script for YouTube Ad Detection
+// content.js - Cinema Usher Content Script
+// Simple content script for Cinema Usher functionality
+
+// Listen for messages from service worker
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  try {
+    console.log("📨 Content script received message:", request.type);
+    
+    switch (request.type) {
+      case 'TEST_MESSAGE':
+        console.log("✅ Content script received test message:", request.payload);
+        sendResponse({ 
+          success: true, 
+          message: 'Content script is ready!',
+          url: window.location.href,
+          timestamp: Date.now()
+        });
+        break;
+        
+      case 'SEND_KEYBOARD_EVENT':
+        sendKeyboardEvent(request.key, request.description);
+        sendResponse({ success: true });
+        break;
+        
+      default:
+        console.warn("⚠️ Unknown message type:", request.type);
+        sendResponse({ success: false, error: 'Unknown message type' });
+    }
+  } catch (error) {
+    console.error("❌ Error handling message:", error);
+    sendResponse({ success: false, error: error.message });
+  }
+  
+  return true; // Keep message channel open
+});
+
+// Send keyboard event to the page
+async function sendKeyboardEvent(key, description) {
+  try {
+    console.log(`⌨️ Sending keyboard event: ${key} (${description})`);
+    
+    // Method 1: Direct keyboard event dispatch (only for non-spacebar keys)
+    if (key !== ' ') {
+      const event = new KeyboardEvent('keydown', {
+        key: key,
+        code: key === 'Escape' ? 'Escape' : `Key${key.toUpperCase()}`,
+        keyCode: key === 'Escape' ? 27 : key.charCodeAt(0),
+        which: key === 'Escape' ? 27 : key.charCodeAt(0),
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        isTrusted: false
+      });
+      
+      const keyupEvent = new KeyboardEvent('keyup', {
+        key: key,
+        code: key === 'Escape' ? 'Escape' : `Key${key.toUpperCase()}`,
+        keyCode: key === 'Escape' ? 27 : key.charCodeAt(0),
+        which: key === 'Escape' ? 27 : key.charCodeAt(0),
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        isTrusted: false
+      });
+      
+      // Dispatch to document and window
+      document.dispatchEvent(event);
+      window.dispatchEvent(event);
+      
+      setTimeout(() => {
+        document.dispatchEvent(keyupEvent);
+        window.dispatchEvent(keyupEvent);
+      }, 50);
+      
+      console.log(`✅ Keyboard events dispatched for key: ${key}`);
+    }
+    
+    // Method 2: Direct video element control (for spacebar)
+    const videoElements = document.querySelectorAll('video');
+    if (videoElements.length > 0) {
+      console.log(`🎬 Found ${videoElements.length} video element(s), controlling them directly`);
+      videoElements.forEach((video, index) => {
+        try {
+          if (key === ' ') {
+            // Toggle play/pause - only use direct control, no keyboard events
+            if (video.paused) {
+              video.play();
+              console.log(`▶️ Video ${index + 1} play() called`);
+            } else {
+              video.pause();
+              console.log(`⏸️ Video ${index + 1} pause() called`);
+            }
+          } else {
+            // For non-spacebar keys, also dispatch to video element
+            video.focus();
+            if (key !== ' ') {
+              const event = new KeyboardEvent('keydown', {
+                key: key,
+                code: key === 'Escape' ? 'Escape' : `Key${key.toUpperCase()}`,
+                keyCode: key === 'Escape' ? 27 : key.charCodeAt(0),
+                which: key === 'Escape' ? 27 : key.charCodeAt(0),
+                bubbles: true,
+                cancelable: true,
+                composed: true,
+                isTrusted: false
+              });
+              video.dispatchEvent(event);
+            }
+          }
+          console.log(`✅ Video element ${index + 1} controlled for key: ${key}`);
+        } catch (videoError) {
+          console.warn(`⚠️ Could not control video element ${index + 1}:`, videoError);
+        }
+      });
+    } else {
+      console.log(`⚠️ No video elements found on page for key: ${key}`);
+    }
+    
+    // Method 3: Try to exit fullscreen if escape key
+    if (key === 'Escape') {
+      try {
+        console.log("🚪 Attempting to exit fullscreen...");
+        let exited = false;
+        
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+          console.log("🚪 exitFullscreen() called");
+          exited = true;
+        }
+        if (document.webkitFullscreenElement) {
+          await document.webkitExitFullscreen();
+          console.log("🚪 webkitExitFullscreen() called");
+          exited = true;
+        }
+        if (document.mozFullScreenElement) {
+          await document.mozCancelFullScreen();
+          console.log("🚪 mozCancelFullScreen() called");
+          exited = true;
+        }
+        if (document.msFullscreenElement) {
+          await document.msExitFullscreen();
+          console.log("🚪 msExitFullscreen() called");
+          exited = true;
+        }
+        
+        if (!exited) {
+          console.log("ℹ️ No fullscreen element found to exit");
+        }
+      } catch (fullscreenError) {
+        console.warn("⚠️ Could not exit fullscreen:", fullscreenError);
+      }
+    }
+    
+    console.log(`✅ Keyboard event sent: ${key}`);
+  } catch (error) {
+    console.error(`❌ Error sending keyboard event ${key}:`, error);
+  }
+}
 
 // Global error handler to catch any remaining issues
 window.addEventListener('error', (event) => {
@@ -9,476 +166,88 @@ window.addEventListener('error', (event) => {
   }
 });
 
-// State to prevent sending redundant messages
-let isAdPlaying = false;
-let currentUrl = window.location.href;
-let observer = null;
-
 // Test message to verify service worker communication
 setTimeout(() => {
-  console.log("🧪 Testing service worker communication...");
+  console.log("🧪 Testing Cinema Usher service worker communication...");
   chrome.runtime.sendMessage({
     type: 'TEST_MESSAGE',
     payload: { message: 'Content script is working' }
   }).then(response => {
-    console.log("✅ Service worker communication test successful:", response);
+    console.log("✅ Cinema Usher service worker communication test successful:", response);
   }).catch(error => {
-    console.error("❌ Service worker communication test failed:", error);
+    console.error("❌ Cinema Usher service worker communication test failed:", error);
   });
 }, 2000);
 
-// Function to check the current ad state and notify the service worker
-const checkAdState = () => {
-  try {
-    // Enhanced ad detection with multiple methods
-    const skipButton = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
-    const adOverlay = document.querySelector('.ytp-ad-player-overlay');
-    const adModule = document.querySelector('.video-ads.ytp-ad-module');
-    
-    // PRIORITY: If skip button is visible, consider ad as "active" regardless of play state
-    // This allows screaming to work even when ad is paused
-    const skipButtonVisible = !!skipButton;
-    const adContentPresent = !!(adOverlay && adOverlay.innerHTML.length > 0) || !!(adModule && adModule.children.length > 0);
-    
-    // Consider ad "active" if skip button is visible OR ad content is present
-    const currentlyPlaying = skipButtonVisible || adContentPresent;
+// Simple test function to verify basic functionality
+function runBasicTests() {
+  console.log("🧪 Running Cinema Usher basic functionality tests...");
+  
+  // Test 1: Check if we're on a valid page
+  const isValidPage = window.location.href.startsWith('http');
+  console.log("✅ Valid page detection:", isValidPage);
+  
+  // Test 2: Check if service worker communication works
+  console.log("✅ Service worker communication test completed");
+  
+  return { isValidPage };
+}
 
-    console.log('Ad detection check:', {
-      skipButton: skipButtonVisible,
-      adOverlay: !!(adOverlay && adOverlay.innerHTML.length > 0),
-      adModule: !!(adModule && adModule.children.length > 0),
-      currentlyPlaying,
-      wasPlaying: isAdPlaying,
-      skipButtonVisible,
-      adContentPresent
-    });
+// Run tests after a delay
+setTimeout(runBasicTests, 3000);
 
-    if (currentlyPlaying !== isAdPlaying) {
-      isAdPlaying = currentlyPlaying;
-      console.log(`🎯 AD STATE CHANGED: ${isAdPlaying ? 'AD STARTED' : 'AD ENDED'}`);
-      
-      // Send message to service worker
-      chrome.runtime.sendMessage({
-        type: 'AD_STATE_CHANGED',
-        payload: { 
-          adPlaying: isAdPlaying,
-          skipButtonVisible: skipButtonVisible,
-          adContentPresent: adContentPresent
-        }
-      }).then(response => {
-        console.log('✅ AD_STATE_CHANGED message sent successfully:', response);
-      }).catch(error => {
-        console.error("❌ Error sending AD_STATE_CHANGED message:", error);
-      });
-    }
-  } catch (error) {
-    console.error("Error in checkAdState:", error);
+// Manual test functions for debugging (can be called from console)
+window.testCinemaUsher = function() {
+  console.log("🧪 Manual test: Testing Cinema Usher functionality...");
+  
+  // Test service worker communication
+  chrome.runtime.sendMessage({
+    type: 'TEST_MESSAGE',
+    payload: { message: 'Manual test from console' }
+  }).then(response => {
+    console.log("✅ Manual test successful:", response);
+  }).catch(error => {
+    console.error("❌ Manual test failed:", error);
+  });
+};
+
+// Make debugging functions available globally
+window.cinemaUsherDebug = {
+  testKeyboardEvent: (key) => {
+    console.log(`🧪 Testing keyboard event: ${key}`);
+    sendKeyboardEvent(key, `test-${key}`);
+  },
+  testPause: () => {
+    console.log("🧪 Testing pause functionality (direct video control)");
+    sendKeyboardEvent(' ', 'test-pause');
+  },
+  testExitFullscreen: () => {
+    console.log("🧪 Testing exit fullscreen functionality");
+    sendKeyboardEvent('Escape', 'test-exit-fullscreen');
+  },
+  getVideoElements: () => {
+    const videos = document.querySelectorAll('video');
+    console.log(`🎬 Found ${videos.length} video elements:`, videos);
+    return videos;
+  },
+  getFullscreenStatus: () => {
+    const status = {
+      fullscreenElement: document.fullscreenElement,
+      webkitFullscreenElement: document.webkitFullscreenElement,
+      mozFullScreenElement: document.mozFullScreenElement,
+      msFullscreenElement: document.msFullscreenElement
+    };
+    console.log("🔍 Fullscreen status:", status);
+    return status;
   }
 };
 
-// Function to initialize ad detection
-function initializeAdDetection() {
-  try {
-    console.log("🔄 Initializing ad detection...");
-    
-    // Clean up existing observer if any
-    if (observer) {
-      observer.disconnect();
-      observer = null;
-    }
-
-    // The target node to observe for mutations (the main video player)
-    const targetNode = document.getElementById('movie_player');
-
-if (targetNode) {
-      console.log("✅ YouTube player found, starting ad detection...");
-      
-      // Create an observer instance linked to a callback function
-      observer = new MutationObserver((mutationsList, observer) => {
-        try {
-          // Check for any relevant mutations
-          let shouldCheck = false;
-          for (const mutation of mutationsList) {
-            if (mutation.type === 'childList' || mutation.type === 'attributes') {
-              shouldCheck = true;
-              break;
-            }
-          }
-          
-          if (shouldCheck) {
-            checkAdState();
-          }
-        } catch (error) {
-          console.error("Error in mutation observer:", error);
-        }
-      });
-
-      // Configuration of the observer
-      const config = {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'hidden'] // Observe changes that might hide/show ad elements
-      };
-
-      // Start observing the target node for configured mutations
-      observer.observe(targetNode, config);
-
-      // Initial check in case an ad is already playing on page load
-      checkAdState();
-    } else {
-      console.log("❌ YouTube player not found, will retry...");
-      // Retry after a short delay in case the player hasn't loaded yet
-      setTimeout(initializeAdDetection, 1000);
-    }
-  } catch (error) {
-    console.error("Error initializing ad detection:", error);
-  }
-}
-
-// Function to check if URL has changed (for SPA navigation)
-function checkUrlChange() {
-  try {
-    const newUrl = window.location.href;
-    if (newUrl !== currentUrl) {
-      console.log("🔄 URL changed, reinitializing ad detection...");
-      currentUrl = newUrl;
-      isAdPlaying = false; // Reset ad state
-      initializeAdDetection();
-    }
-  } catch (error) {
-    console.error("Error checking URL change:", error);
-  }
-}
-
-// Listen for messages from the service worker
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  try {
-    if (request.type === 'EXECUTE_SKIP_ACTION') {
-      console.log('🎯 Received EXECUTE_SKIP_ACTION command');
-      
-      // Use retry mechanism to find skip button
-      findSkipButtonWithRetry().then(skipButton => {
-        if (skipButton) {
-          const rect = skipButton.getBoundingClientRect();
-          console.log('✅ Found skip button at:', rect);
-          
-          // Try to click the button directly first (most reliable)
-          try {
-            console.log('🎯 Attempting direct click on skip button...');
-            skipButton.click();
-            console.log('✅ Direct click successful');
-            sendResponse({
-              success: true,
-              rect: rect,
-              method: 'direct'
-            });
-          } catch (clickError) {
-            console.log('⚠️ Direct click failed, providing coordinates for fallback:', clickError);
-            sendResponse({
-              success: true,
-              rect: rect,
-              method: 'coordinates'
-            });
-          }
-        } else {
-          console.log('❌ Skip button not found after retries');
-          sendResponse({ success: false, reason: 'Skip button not found after retries.' });
-        }
-      });
-      
-      return true; // Keep message channel open for async response
-    } else if (request.type === 'TEST_SKIP_BUTTON') {
-      console.log('🧪 Received TEST_SKIP_BUTTON command');
-      
-      // Use retry mechanism for test as well
-      findSkipButtonWithRetry().then(skipButton => {
-        if (skipButton) {
-          const testResult = testSkipButtonFunctionality();
-          sendResponse(testResult);
-        } else {
-          sendResponse({ success: false, reason: 'No skip button found after retries' });
-        }
-      });
-      
-      return true; // Keep message channel open for async response
-    } else if (request.type === 'DEBUG_PAGE_ELEMENTS') {
-      console.log('🔍 Received DEBUG_PAGE_ELEMENTS command');
-      const debugResult = debugPageElements();
-      sendResponse({ success: true, debugResult });
-      return true;
-    }
-  } catch (error) {
-    console.error("Error handling message:", error);
-    sendResponse({ success: false, reason: 'Error processing request.' });
-    return true;
-  }
-});
-
-// Function to find the skip button using multiple selectors for robustness
-function findSkipButton() {
-  try {
-    const selectors = [
-      // Modern YouTube skip button selectors
-      '.ytp-ad-skip-button-modern',
-      '.ytp-ad-skip-button',
-      '.ytp-ad-skip-button-container button',
-      '.ytp-ad-skip-button-slot button',
-      
-      // Generic skip button selectors
-      '[aria-label*="Skip"]',
-      '[aria-label*="skip"]',
-      'button[aria-label*="Skip"]',
-      'button[aria-label*="skip"]',
-      
-      // Additional selectors for different ad types
-      '.ytp-ad-skip-button-container',
-      '.ytp-ad-skip-button-slot',
-      '[data-target-id="skip-button"]',
-      '[data-target-id="skip-button-modern"]',
-      
-      // Text-based selectors
-      'button:contains("Skip")',
-      'button:contains("skip")',
-      '[role="button"]:contains("Skip")',
-      
-      // Shadow DOM and iframe selectors (if needed)
-      'ytd-player * .ytp-ad-skip-button',
-      'ytd-player * [aria-label*="Skip"]'
-    ];
-    
-    console.log('🔍 Searching for skip button with selectors...');
-    
-    // First, try standard selectors
-    for (const selector of selectors) {
-      try {
-        const button = document.querySelector(selector);
-        if (button) {
-          console.log('✅ Found skip button with selector:', selector);
-          console.log('✅ Button details:', {
-            tagName: button.tagName,
-            className: button.className,
-            id: button.id,
-            textContent: button.textContent?.trim(),
-            ariaLabel: button.getAttribute('aria-label'),
-            visible: button.offsetParent !== null,
-            rect: button.getBoundingClientRect()
-          });
-          return button;
-        }
-      } catch (error) {
-        console.log('⚠️ Selector failed:', selector, error);
-      }
-    }
-    
-    // If standard selectors fail, try more aggressive search
-    console.log('🔍 Standard selectors failed, trying aggressive search...');
-    
-    // Search all buttons for skip-related text
-    const allButtons = document.querySelectorAll('button');
-    for (const button of allButtons) {
-      const text = button.textContent?.toLowerCase() || '';
-      const ariaLabel = button.getAttribute('aria-label')?.toLowerCase() || '';
-      
-      if (text.includes('skip') || ariaLabel.includes('skip')) {
-        console.log('✅ Found skip button via text search:', {
-          tagName: button.tagName,
-          className: button.className,
-          textContent: button.textContent?.trim(),
-          ariaLabel: button.getAttribute('aria-label'),
-          visible: button.offsetParent !== null,
-          rect: button.getBoundingClientRect()
-        });
-        return button;
-      }
-    }
-    
-    // Search for any element with skip-related attributes
-    const skipElements = document.querySelectorAll('[aria-label*="Skip"], [aria-label*="skip"]');
-    for (const element of skipElements) {
-      if (element.tagName === 'BUTTON' || element.onclick || element.getAttribute('role') === 'button') {
-        console.log('✅ Found skip button via attribute search:', {
-          tagName: element.tagName,
-          className: element.className,
-          textContent: element.textContent?.trim(),
-          ariaLabel: element.getAttribute('aria-label'),
-          visible: element.offsetParent !== null,
-          rect: element.getBoundingClientRect()
-        });
-        return element;
-      }
-    }
-    
-    console.log('❌ No skip button found with any method');
-    return null;
-  } catch (error) {
-    console.error("Error finding skip button:", error);
-    return null;
-  }
-}
-
-// Comprehensive test function for skip button functionality
-function testSkipButtonFunctionality() {
-  console.log('🧪 Testing skip button functionality...');
-  
-  // Test 1: Find skip button
-  const skipButton = findSkipButton();
-  if (!skipButton) {
-    console.log('❌ TEST FAILED: No skip button found');
-    return { success: false, reason: 'No skip button found' };
-  }
-  
-  // Test 2: Check button properties
-  const rect = skipButton.getBoundingClientRect();
-  console.log('✅ Button found at:', rect);
-  
-  // Test 3: Check if button is visible and clickable
-  if (rect.width === 0 || rect.height === 0) {
-    console.log('❌ TEST FAILED: Button has zero dimensions');
-    return { success: false, reason: 'Button has zero dimensions' };
-  }
-  
-  if (skipButton.offsetParent === null) {
-    console.log('❌ TEST FAILED: Button is not visible');
-    return { success: false, reason: 'Button is not visible' };
-  }
-  
-  // Test 4: Try to click the button
-  try {
-    console.log('🎯 Attempting to click skip button...');
-    skipButton.click();
-    console.log('✅ TEST PASSED: Direct click successful');
-    return { success: true, method: 'direct', rect: rect };
-  } catch (clickError) {
-    console.log('⚠️ Direct click failed:', clickError);
-    console.log('✅ TEST PARTIAL: Button found but direct click failed, coordinates available');
-    return { success: true, method: 'coordinates', rect: rect, error: clickError.message };
-  }
-}
-
-// Enhanced skip button finder with retry mechanism
-function findSkipButtonWithRetry(maxRetries = 5, delay = 500) {
-  return new Promise((resolve) => {
-    let attempts = 0;
-    
-    const tryFind = () => {
-      attempts++;
-      console.log(`🔍 Attempt ${attempts}/${maxRetries} to find skip button...`);
-      
-      const skipButton = findSkipButton();
-      if (skipButton) {
-        console.log(`✅ Found skip button on attempt ${attempts}`);
-        resolve(skipButton);
-        return;
-      }
-      
-      if (attempts >= maxRetries) {
-        console.log('❌ Failed to find skip button after all attempts');
-        resolve(null);
-        return;
-      }
-      
-      console.log(`⏰ Retrying in ${delay}ms...`);
-      setTimeout(tryFind, delay);
-    };
-    
-    tryFind();
-  });
-}
-
-// Debug function to help identify page elements
-function debugPageElements() {
-  console.log('🔍 DEBUG: Analyzing page elements...');
-  
-  // Check for common ad-related elements
-  const adElements = {
-    'ytp-ad-skip-button': document.querySelectorAll('.ytp-ad-skip-button'),
-    'ytp-ad-skip-button-modern': document.querySelectorAll('.ytp-ad-skip-button-modern'),
-    'ytp-ad-skip-button-container': document.querySelectorAll('.ytp-ad-skip-button-container'),
-    'ytp-ad-skip-button-slot': document.querySelectorAll('.ytp-ad-skip-button-slot'),
-    'ytp-ad-player-overlay': document.querySelectorAll('.ytp-ad-player-overlay'),
-    'video-ads.ytp-ad-module': document.querySelectorAll('.video-ads.ytp-ad-module')
-  };
-  
-  console.log('📊 Ad elements found:', adElements);
-  
-  // Check all buttons for skip-related content
-  const allButtons = document.querySelectorAll('button');
-  const skipRelatedButtons = [];
-  
-  for (const button of allButtons) {
-    const text = button.textContent?.toLowerCase() || '';
-    const ariaLabel = button.getAttribute('aria-label')?.toLowerCase() || '';
-    const className = button.className || '';
-    
-    if (text.includes('skip') || ariaLabel.includes('skip') || className.includes('skip')) {
-      skipRelatedButtons.push({
-        element: button,
-        textContent: button.textContent?.trim(),
-        ariaLabel: button.getAttribute('aria-label'),
-        className: button.className,
-        visible: button.offsetParent !== null,
-        rect: button.getBoundingClientRect()
-      });
-    }
-  }
-  
-  console.log('📊 Skip-related buttons found:', skipRelatedButtons);
-  
-  // Check for any elements with skip-related attributes
-  const skipElements = document.querySelectorAll('[aria-label*="Skip"], [aria-label*="skip"]');
-  console.log('📊 Elements with skip attributes:', Array.from(skipElements).map(el => ({
-    tagName: el.tagName,
-    className: el.className,
-    ariaLabel: el.getAttribute('aria-label'),
-    textContent: el.textContent?.trim(),
-    visible: el.offsetParent !== null
-  })));
-  
-  return { adElements, skipRelatedButtons, skipElements: Array.from(skipElements) };
-}
+console.log("🔧 Cinema Usher debug functions available:");
+console.log("- window.cinemaUsherDebug.testKeyboardEvent('key') - Test specific key");
+console.log("- window.cinemaUsherDebug.testPause() - Test pause (direct video control)");
+console.log("- window.cinemaUsherDebug.testExitFullscreen() - Test exit fullscreen");
+console.log("- window.cinemaUsherDebug.getVideoElements() - List video elements");
+console.log("- window.cinemaUsherDebug.getFullscreenStatus() - Check fullscreen status");
 
 // Initialize when script loads
-console.log("🚀 Content script loaded, initializing...");
-
-// Send immediate test message to verify service worker communication
-chrome.runtime.sendMessage({
-  type: 'TEST_MESSAGE',
-  payload: { message: 'Content script just loaded' }
-}).then(response => {
-  console.log("✅ Immediate service worker test successful:", response);
-}).catch(error => {
-  console.error("❌ Immediate service worker test failed:", error);
-});
-
-initializeAdDetection();
-
-// Check for URL changes periodically (for SPA navigation)
-setInterval(checkUrlChange, 1000);
-
-// Also listen for popstate events (back/forward navigation)
-window.addEventListener('popstate', () => {
-  setTimeout(checkUrlChange, 100);
-});
-
-// Listen for pushstate/replacestate events (programmatic navigation)
-const originalPushState = history.pushState;
-const originalReplaceState = history.replaceState;
-
-history.pushState = function(...args) {
-  try {
-    originalPushState.apply(history, args);
-    setTimeout(checkUrlChange, 100);
-  } catch (error) {
-    console.error("Error in pushState:", error);
-  }
-};
-
-history.replaceState = function(...args) {
-  try {
-    originalReplaceState.apply(history, args);
-    setTimeout(checkUrlChange, 100);
-  } catch (error) {
-    console.error("Error in replaceState:", error);
-  }
-};
+console.log("🎭 Cinema Usher content script loaded");

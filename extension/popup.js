@@ -1,12 +1,15 @@
-// popup.js - UI Logic for Scream to Skip Extension
+// popup.js - Cinema Usher Popup Interface
 
+// DOM elements
 const toggle = document.getElementById('toggle');
 const sensitivity = document.getElementById('sensitivity');
 const sensitivityValue = document.getElementById('sensitivityValue');
+const scoldingType = document.getElementById('scoldingType');
 const status = document.getElementById('status');
 const statusDot = document.getElementById('statusDot');
 const testBtn = document.getElementById('testBtn');
 const debugBtn = document.getElementById('debugBtn');
+const testPauseBtn = document.getElementById('testPauseBtn'); // Added for new test button
 
 // Audio meter elements
 const audioLevel = document.getElementById('audioLevel');
@@ -14,338 +17,365 @@ const levelIndicator = document.getElementById('levelIndicator');
 const thresholdLine = document.getElementById('thresholdLine');
 const meterStatus = document.getElementById('meterStatus');
 
-let audioUpdateInterval = null;
-let currentSettings = { isEnabled: true, sensitivity: 0.5 };
-let retryCount = 0;
-const maxRetries = 3;
+// Current settings
+let currentSettings = {
+  isEnabled: false,
+  sensitivity: 0.5,
+  scoldingType: 'classic'
+};
 
-// Load and display saved settings when popup opens
-function loadSettings() {
+// Audio meter update interval
+let audioMeterInterval = null;
+
+// Initialize popup
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log("🎭 Cinema Usher popup initializing...");
+  
   try {
-    console.log("🔄 Loading settings...");
-    chrome.storage.local.get(['settings'], (result) => {
-      try {
-        if (chrome.runtime.lastError) {
-          console.error("❌ Storage error:", chrome.runtime.lastError);
-          // Use defaults if storage fails
-          currentSettings = { isEnabled: true, sensitivity: 0.5 };
-          toggle.checked = true;
-          sensitivity.value = 0.5;
-          updateUI();
-          startAudioMeterUpdates();
-          return;
-        }
+    await loadSettings();
+    updateUI();
+    setupEventListeners();
+    startAudioMeterUpdates();
+    
+    // If monitoring was previously enabled, start it automatically
+    if (currentSettings.isEnabled) {
+      console.log("🎬 Restoring previous monitoring state...");
+      await sendMessageToServiceWorker({
+        type: 'START_MONITORING',
+        sensitivity: currentSettings.sensitivity
+      });
+    }
+  } catch (error) {
+    console.error("❌ Error initializing popup:", error);
+  }
+});
 
-        const settings = result.settings || {};
-        currentSettings = {
-          isEnabled: settings.isEnabled !== false,
-          sensitivity: settings.sensitivity || 0.5
-        };
-
-        toggle.checked = currentSettings.isEnabled;
-        sensitivity.value = currentSettings.sensitivity;
-        updateUI();
-        startAudioMeterUpdates();
-        console.log("✅ Settings loaded successfully");
-      } catch (error) {
-        console.error("❌ Error processing settings:", error);
-        // Set defaults if there's an error
-        currentSettings = { isEnabled: true, sensitivity: 0.5 };
-        toggle.checked = true;
-        sensitivity.value = 0.5;
-        updateUI();
-        startAudioMeterUpdates();
-      }
-    });
+// Load settings from storage
+async function loadSettings() {
+  try {
+    const result = await chrome.storage.local.get(['settings']);
+    currentSettings = result.settings || {
+      isEnabled: false,
+      sensitivity: 0.5,
+      scoldingType: 'classic'
+    };
+    console.log("✅ Settings loaded:", currentSettings);
   } catch (error) {
     console.error("❌ Error loading settings:", error);
-    // Set defaults if there's an error
-    currentSettings = { isEnabled: true, sensitivity: 0.5 };
-    toggle.checked = true;
-    sensitivity.value = 0.5;
-    updateUI();
-    startAudioMeterUpdates();
+    // Use default settings if storage fails
+    currentSettings = {
+      isEnabled: false,
+      sensitivity: 0.5,
+      scoldingType: 'classic'
+    };
   }
 }
 
-// Start audio meter updates
-function startAudioMeterUpdates() {
-  if (audioUpdateInterval) {
-    clearInterval(audioUpdateInterval);
-  }
-
-  // Update audio meter every 200ms (reduced frequency)
-  audioUpdateInterval = setInterval(async () => {
-    try {
-      // Get audio level from offscreen document
-      const contexts = await chrome.runtime.getContexts({
-        contextTypes: ['OFFSCREEN_DOCUMENT']
-      });
-
-      if (contexts.length > 0) {
-        // Send message directly to offscreen document for audio level
-        chrome.runtime.sendMessage({ type: 'GET_AUDIO_LEVEL' }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.warn("⚠️ Audio level request failed:", chrome.runtime.lastError);
-            updateAudioMeter(0, currentSettings.sensitivity, 'No audio data');
-            retryCount = 0; // Reset retry count on successful error handling
-          } else if (response && response.success) {
-            updateAudioMeter(response.audioLevel, currentSettings.sensitivity, response.status);
-            retryCount = 0; // Reset retry count on success
-          } else {
-            updateAudioMeter(0, currentSettings.sensitivity, 'Waiting for audio...');
-            retryCount = 0; // Reset retry count on successful response
-          }
-        });
-      } else {
-        updateAudioMeter(0, currentSettings.sensitivity, 'Audio not active');
-        retryCount = 0; // Reset retry count when no offscreen document
-      }
-    } catch (error) {
-      console.error("❌ Error updating audio meter:", error);
-      updateAudioMeter(0, 0.5, 'Error');
-      retryCount++;
-      
-      // Stop retrying if we've exceeded max retries
-      if (retryCount >= maxRetries) {
-        console.warn("⚠️ Max retries exceeded, stopping audio meter updates");
-        clearInterval(audioUpdateInterval);
-        audioUpdateInterval = null;
-      }
-    }
-  }, 200);
-}
-
-// Update audio meter display
-function updateAudioMeter(level, sensitivity, statusText) {
+// Save settings to storage
+async function saveSettings() {
   try {
-    // Update level display
-    audioLevel.textContent = level.toFixed(3);
-
-    // Update level indicator (0-100%)
-    const levelPercent = Math.min(level * 100, 100);
-    levelIndicator.style.width = levelPercent + '%';
-
-    // Update threshold line position
-    const threshold = 1.0 - sensitivity;
-    const thresholdPercent = Math.min(threshold * 100, 100);
-    thresholdLine.style.left = thresholdPercent + '%';
-
-    // Update status
-    meterStatus.textContent = statusText;
-
-    // Change level indicator color based on level vs threshold
-    if (level > threshold) {
-      levelIndicator.style.background = '#ef4444'; // Red when above threshold
-      meterStatus.style.color = '#ef4444';
-    } else if (level > threshold * 0.8) {
-      levelIndicator.style.background = '#f59e0b'; // Orange when close to threshold
-      meterStatus.style.color = '#f59e0b';
-    } else {
-      levelIndicator.style.background = 'linear-gradient(90deg, #10b981, #f59e0b, #ef4444)';
-      meterStatus.style.color = 'white';
-    }
+    await chrome.storage.local.set({ settings: currentSettings });
+    console.log("✅ Settings saved:", currentSettings);
   } catch (error) {
-    console.error("❌ Error updating audio meter display:", error);
+    console.error("❌ Error saving settings:", error);
+  }
+}
+
+// Send message to service worker with retry
+async function sendMessageToServiceWorker(message, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await chrome.runtime.sendMessage(message);
+      return response;
+    } catch (error) {
+      console.error(`❌ Service worker communication attempt ${attempt} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+    }
   }
 }
 
 // Update UI based on current settings
 function updateUI() {
-  try {
-    // Update status text and dot
-    if (currentSettings.isEnabled) {
-      status.textContent = 'Extension is enabled';
-      statusDot.className = 'status-dot enabled';
-    } else {
-      status.textContent = 'Extension is disabled';
-      statusDot.className = 'status-dot disabled';
+  toggle.checked = currentSettings.isEnabled;
+  sensitivity.value = currentSettings.sensitivity;
+  // Update sensitivity value display
+  const sensitivityValue = document.getElementById('sensitivityValue');
+  if (sensitivityValue) {
+    sensitivityValue.textContent = `${Math.round(currentSettings.sensitivity * 100)}%`;
+  }
+  scoldingType.value = currentSettings.scoldingType;
+  
+  // Update status
+  if (currentSettings.isEnabled) {
+    status.textContent = 'Usher Active';
+    statusDot.className = 'status-dot enabled';
+  } else {
+    status.textContent = 'Usher Disabled';
+    statusDot.className = 'status-dot disabled';
+  }
+}
+
+// Setup event listeners
+function setupEventListeners() {
+  // Toggle switch
+  toggle.addEventListener('change', async () => {
+    try {
+      currentSettings.isEnabled = toggle.checked;
+      await saveSettings();
+      updateUI();
+      
+      // Send settings update to service worker
+      await sendMessageToServiceWorker({
+        type: 'UPDATE_SETTINGS',
+        settings: currentSettings
+      });
+      
+      // Automatically start/stop monitoring based on toggle state
+      if (currentSettings.isEnabled) {
+        console.log("🎬 Toggle enabled - starting audio monitoring...");
+        await sendMessageToServiceWorker({
+          type: 'START_MONITORING',
+          sensitivity: currentSettings.sensitivity
+        });
+      } else {
+        console.log("🛑 Toggle disabled - stopping audio monitoring...");
+        await sendMessageToServiceWorker({
+          type: 'STOP_MONITORING'
+        });
+      }
+      
+      console.log("✅ Toggle updated:", currentSettings.isEnabled);
+    } catch (error) {
+      console.error("❌ Error updating toggle:", error);
     }
+  });
 
-    // Update sensitivity label
-    sensitivityValue.textContent = currentSettings.sensitivity.toFixed(1);
-  } catch (error) {
-    console.error("❌ Error updating UI:", error);
-  }
-}
-
-// Save settings to storage
-function saveSettings() {
-  try {
-    console.log("💾 Saving settings:", currentSettings);
-    chrome.storage.local.set({ settings: currentSettings }, () => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error saving settings:", chrome.runtime.lastError);
-      } else {
-        console.log("✅ Settings saved successfully");
+  // Sensitivity slider
+  sensitivity.addEventListener('input', async () => {
+    try {
+      currentSettings.sensitivity = parseFloat(sensitivity.value);
+      // Update sensitivity value display
+      const sensitivityValue = document.getElementById('sensitivityValue');
+      if (sensitivityValue) {
+        sensitivityValue.textContent = `${Math.round(currentSettings.sensitivity * 100)}%`;
       }
-    });
-  } catch (error) {
-    console.error("❌ Error in saveSettings:", error);
-  }
-}
-
-// Event listeners
-toggle.addEventListener('change', () => {
-  try {
-    currentSettings.isEnabled = toggle.checked;
-    updateUI();
-    saveSettings();
-    
-    // Send settings update to service worker
-    chrome.runtime.sendMessage({
-      type: 'SETTINGS_UPDATED',
-      payload: currentSettings
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error sending settings update:", chrome.runtime.lastError);
-      } else {
-        console.log("✅ Settings update sent successfully:", response);
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error handling toggle change:", error);
-  }
-});
-
-sensitivity.addEventListener('input', () => {
-  try {
-    currentSettings.sensitivity = parseFloat(sensitivity.value);
-    updateUI();
-    saveSettings();
-    
-    // Send settings update to service worker
-    chrome.runtime.sendMessage({
-      type: 'SETTINGS_UPDATED',
-      payload: currentSettings
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error sending settings update:", chrome.runtime.lastError);
-      } else {
-        console.log("✅ Settings update sent successfully:", response);
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error handling sensitivity change:", error);
-  }
-});
-
-testBtn.addEventListener('click', () => {
-  try {
-    console.log("🧪 Test button clicked");
-    testBtn.disabled = true;
-    const testText = testBtn.querySelector('.test-text');
-    testText.textContent = 'Testing...';
-    
-    // Send test command to content script
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error querying tabs:", chrome.runtime.lastError);
-        testBtn.disabled = false;
-        testText.textContent = 'Test Skip Action';
-        return;
+      await saveSettings();
+      
+      // Send settings update to service worker
+      await sendMessageToServiceWorker({
+        type: 'UPDATE_SETTINGS',
+        settings: currentSettings
+      });
+      
+      // If monitoring is enabled, restart it with new sensitivity
+      if (currentSettings.isEnabled) {
+        console.log("🎚️ Sensitivity changed - restarting monitoring with new sensitivity...");
+        await sendMessageToServiceWorker({
+          type: 'STOP_MONITORING'
+        });
+        await sendMessageToServiceWorker({
+          type: 'START_MONITORING',
+          sensitivity: currentSettings.sensitivity
+        });
       }
       
-      if (tabs.length > 0) {
-        // First test if skip button exists
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'TEST_SKIP_BUTTON' }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error("❌ Error sending test message:", chrome.runtime.lastError);
-            testText.textContent = 'Error: No response';
-          } else if (response && response.success) {
-            console.log("✅ Skip button test successful:", response);
-            if (response.method === 'direct') {
-              testText.textContent = 'Skip button clicked!';
-            } else {
-              testText.textContent = 'Skip button found';
-            }
-          } else {
-            console.log("❌ Skip button test failed:", response?.reason);
-            testText.textContent = response?.reason || 'No skip button found';
-          }
-          
-          setTimeout(() => {
-            testBtn.disabled = false;
-            testText.textContent = 'Test Skip Action';
-          }, 2000);
-        });
-      } else {
-        console.error("❌ No active tab found");
-        testText.textContent = 'No active tab';
-        setTimeout(() => {
-          testBtn.disabled = false;
-          testText.textContent = 'Test Skip Action';
-        }, 2000);
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error handling test button click:", error);
-    testBtn.disabled = false;
-    const testText = testBtn.querySelector('.test-text');
-    testText.textContent = 'Test Skip Action';
-  }
-});
+      console.log("✅ Sensitivity updated:", currentSettings.sensitivity);
+    } catch (error) {
+      console.error("❌ Error updating sensitivity:", error);
+    }
+  });
 
-// Debug button functionality
-debugBtn.addEventListener('click', () => {
-  try {
-    console.log("🔍 Debug button clicked");
-    debugBtn.disabled = true;
-    const debugText = debugBtn.querySelector('.debug-text');
-    debugText.textContent = 'Debugging...';
-    
-    // Send debug command to content script
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) {
-        console.error("❌ Error querying tabs:", chrome.runtime.lastError);
+  // Also save settings when user finishes dragging
+  sensitivity.addEventListener('change', async () => {
+    try {
+      await saveSettings();
+      console.log("✅ Sensitivity settings saved");
+    } catch (error) {
+      console.error("❌ Error saving sensitivity settings:", error);
+    }
+  });
+
+  // Scolding type selector
+  scoldingType.addEventListener('change', async () => {
+    try {
+      currentSettings.scoldingType = scoldingType.value;
+      await saveSettings();
+      
+      // Send settings update to service worker
+      await sendMessageToServiceWorker({
+        type: 'UPDATE_SETTINGS',
+        settings: currentSettings
+      });
+      
+      console.log("✅ Scolding type updated:", currentSettings.scoldingType);
+    } catch (error) {
+      console.error("❌ Error updating scolding type:", error);
+    }
+  });
+
+  // Test button
+  testBtn.addEventListener('click', async () => {
+    try {
+      console.log("🎭 Testing scolding sound...");
+      await sendMessageToServiceWorker({
+        type: 'LOUD_TALKER_DETECTED'
+      });
+      console.log("✅ Test scolding triggered");
+    } catch (error) {
+      console.error("❌ Error testing scolding:", error);
+    }
+  });
+
+  // Test pause and exit fullscreen button
+  testPauseBtn.addEventListener('click', async () => {
+    try {
+      console.log("⏸️ Testing pause and exit fullscreen...");
+      
+      // Get the active tab
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (activeTab) {
+        // Send spacebar to pause audio/video
+        await chrome.tabs.sendMessage(activeTab.id, {
+          type: 'SEND_KEYBOARD_EVENT',
+          key: ' ',
+          description: 'pause audio/video (test)'
+        });
+        
+        // Small delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Send escape to exit fullscreen
+        await chrome.tabs.sendMessage(activeTab.id, {
+          type: 'SEND_KEYBOARD_EVENT',
+          key: 'Escape',
+          description: 'exit fullscreen (test)'
+        });
+        
+        console.log("✅ Test pause and exit fullscreen triggered");
+      } else {
+        console.log("⚠️ No active tab found for testing");
+      }
+    } catch (error) {
+      console.error("❌ Error testing pause and exit fullscreen:", error);
+    }
+  });
+
+  // Debug button
+  debugBtn.addEventListener('click', async () => {
+    try {
+      console.log("🔧 Debug button clicked");
+      debugBtn.disabled = true;
+      const debugText = debugBtn.querySelector('.debug-text');
+      debugText.textContent = 'Checking...';
+
+      // Get current settings and status
+      const settingsResponse = await sendMessageToServiceWorker({
+        type: 'GET_SETTINGS'
+      });
+
+      // Get monitoring status
+      const statusResponse = await sendMessageToServiceWorker({
+        type: 'GET_MONITORING_STATUS'
+      });
+
+      // Get audio level
+      const audioResponse = await sendMessageToServiceWorker({
+        type: 'GET_AUDIO_LEVEL',
+        sensitivity: currentSettings.sensitivity
+      });
+
+      console.log("🔧 Debug Information:");
+      console.log("   - Settings:", settingsResponse?.settings);
+      console.log("   - Monitoring Status:", statusResponse);
+      console.log("   - Audio Level:", audioResponse?.audioLevel);
+      console.log("   - Threshold:", audioResponse?.threshold);
+      console.log("   - Current Settings:", currentSettings);
+      console.log("   - Toggle State:", toggle.checked);
+
+      debugText.textContent = 'Debug Complete!';
+      setTimeout(() => {
         debugBtn.disabled = false;
-        debugText.textContent = 'Debug Page Elements';
-        return;
-      }
-      
-      if (tabs.length > 0) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'DEBUG_PAGE_ELEMENTS' }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error("❌ Error sending debug message:", chrome.runtime.lastError);
-            debugText.textContent = 'Error: No response';
-          } else if (response && response.success) {
-            console.log("✅ Debug successful:", response.debugResult);
-            debugText.textContent = 'Debug complete!';
-          } else {
-            console.log("❌ Debug failed:", response?.reason);
-            debugText.textContent = response?.reason || 'Debug failed';
-          }
-          
-          setTimeout(() => {
-            debugBtn.disabled = false;
-            debugText.textContent = 'Debug Page Elements';
-          }, 2000);
-        });
-      } else {
-        console.error("❌ No active tab found");
-        debugText.textContent = 'No active tab';
-        setTimeout(() => {
-          debugBtn.disabled = false;
-          debugText.textContent = 'Debug Page Elements';
-        }, 2000);
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error handling debug button click:", error);
-    debugBtn.disabled = false;
-    const debugText = debugBtn.querySelector('.debug-text');
-    debugText.textContent = 'Debug Page Elements';
+        debugText.textContent = 'Debug Audio';
+      }, 2000);
+    } catch (error) {
+      console.error("❌ Error handling debug button click:", error);
+      debugBtn.disabled = false;
+      const debugText = debugBtn.querySelector('.debug-text');
+      debugText.textContent = 'Debug Audio';
+    }
+  });
+}
+
+// Start audio meter updates
+function startAudioMeterUpdates() {
+  if (audioMeterInterval) {
+    clearInterval(audioMeterInterval);
   }
-});
+
+  console.log("🎤 Starting audio meter updates...");
+
+  audioMeterInterval = setInterval(async () => {
+    try {
+      const response = await sendMessageToServiceWorker({
+        type: 'GET_AUDIO_LEVEL',
+        sensitivity: currentSettings.sensitivity
+      });
+
+      if (response && response.success) {
+        updateAudioMeter(response.audioLevel, response.threshold);
+        
+        // Log audio meter updates occasionally for debugging
+        if (Math.random() < 0.05) { // 5% of the time
+          console.log(`🎤 Audio Meter Update - Level: ${response.audioLevel?.toFixed(3) || 'N/A'}, Threshold: ${response.threshold?.toFixed(3) || 'N/A'}`);
+        }
+      } else {
+        console.warn("⚠️ Audio meter update failed:", response);
+      }
+    } catch (error) {
+      console.error("❌ Error updating audio meter:", error);
+    }
+  }, 200); // Reduced from 100ms to 200ms for better performance
+}
+
+// Update audio meter display
+function updateAudioMeter(level, threshold) {
+  try {
+    // Update level display
+    audioLevel.textContent = level.toFixed(3);
+    
+    // Update level indicator
+    const levelPercent = Math.min(level * 100, 100);
+    levelIndicator.style.width = levelPercent + '%';
+    
+    // Update threshold line
+    const thresholdPercent = Math.min(threshold * 100, 100);
+    thresholdLine.style.left = thresholdPercent + '%';
+    
+    // Update meter status
+    if (level > threshold) {
+      meterStatus.textContent = 'LOUD TALKER DETECTED!';
+      meterStatus.className = 'meter-status active';
+      levelIndicator.className = 'level-indicator active';
+    } else {
+      meterStatus.textContent = 'Monitoring audio...';
+      meterStatus.className = 'meter-status';
+      levelIndicator.className = 'level-indicator';
+    }
+  } catch (error) {
+    console.error("❌ Error updating audio meter:", error);
+  }
+}
 
 // Clean up interval when popup closes
 window.addEventListener('beforeunload', () => {
-  if (audioUpdateInterval) {
-    clearInterval(audioUpdateInterval);
-    audioUpdateInterval = null;
+  if (audioMeterInterval) {
+    clearInterval(audioMeterInterval);
   }
 });
-
-// Initialize popup
-console.log("🚀 Popup initializing...");
-loadSettings();

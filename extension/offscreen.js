@@ -1,69 +1,103 @@
-// offscreen.js - Audio Processing for MV3 Extension
+// offscreen.js - Cinema Usher Audio Processing
+// Monitors microphone for loud talkers and triggers scolding actions
 
-let audioContext;
-let mediaStream;
-let analyser;
-let dataArray;
-let intervalId;
+let mediaStream = null;
+let audioContext = null;
+let analyser = null;
+let dataArray = null;
+let intervalId = null;
 let isCapturing = false;
 let currentAudioLevel = 0;
-let currentStatus = "Waiting for audio...";
-let lastScreamTime = 0;
-const SCREAM_COOLDOWN = 2000; // 2 seconds cooldown between scream attempts
+let lastTalkerTime = 0;
+const TALKER_COOLDOWN = 3000; // 3 seconds between scoldings
 
 const statusElement = document.getElementById('status');
 
-// Listen for messages from the service worker
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  console.log("🎭 Cinema Usher offscreen document loaded");
+  if (statusElement) {
+    statusElement.textContent = "Cinema Usher ready";
+  }
+});
+
+// Ensure status element exists
+function updateStatus(message) {
+  if (statusElement) {
+    statusElement.textContent = message;
+  }
+}
+
+// Listen for messages from service worker
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   try {
-    console.log("📨 Offscreen received message:", message.type);
+    console.log("📨 Offscreen received message:", request.type);
     
-    if (message.type === 'START_AUDIO_CAPTURE') {
-      console.log("🎤 Starting audio capture with sensitivity:", message.payload.sensitivity);
-      startAudioCapture(message.payload.sensitivity).catch(console.error);
-      sendResponse({ success: true });
-    } else if (message.type === 'STOP_AUDIO_CAPTURE') {
-      console.log("🛑 Stopping audio capture");
-      stopAudioCapture();
-      sendResponse({ success: true });
-    } else if (message.type === 'GET_AUDIO_LEVEL') {
-      console.log("📊 Returning audio level:", currentAudioLevel, "status:", currentStatus);
-      // Return current audio level and status
-      sendResponse({
-        success: true,
-        audioLevel: currentAudioLevel,
-        status: currentStatus
-      });
+    switch (request.type) {
+      case 'START_TALKER_MONITORING':
+        startTalkerMonitoring(request.sensitivity);
+        sendResponse({ success: true });
+        break;
+        
+      case 'STOP_TALKER_MONITORING':
+        stopTalkerMonitoring();
+        sendResponse({ success: true });
+        break;
+        
+      case 'GET_AUDIO_LEVEL':
+        sendResponse({ 
+          success: true, 
+          audioLevel: currentAudioLevel,
+          threshold: 1.0 - (request.sensitivity || 0.5)
+        });
+        break;
+        
+      case 'TEST_MESSAGE':
+        console.log("✅ Offscreen document received test message:", request.payload);
+        sendResponse({ 
+          success: true, 
+          message: 'Offscreen document is ready!',
+          timestamp: Date.now()
+        });
+        break;
+        
+      case 'PLAY_SCOLDING':
+        playScolding(request.scoldingType);
+        sendResponse({ success: true });
+        break;
+        
+      default:
+        console.warn("⚠️ Unknown message type:", request.type);
+        sendResponse({ success: false, error: 'Unknown message type' });
     }
   } catch (error) {
-    console.error("❌ Error handling message in offscreen:", error);
+    console.error("❌ Error handling message:", error);
     sendResponse({ success: false, error: error.message });
   }
   
-  return true; // Keep message channel open for async response
+  return true; // Keep message channel open
 });
 
-async function startAudioCapture(sensitivity) {
+// Start monitoring for loud talkers
+async function startTalkerMonitoring(sensitivity) {
   if (isCapturing) {
-    console.log("ℹ️ Already capturing audio");
+    console.log("ℹ️ Already monitoring for talkers");
     return;
   }
 
   try {
-    console.log("🎤 Requesting microphone access...");
-    console.log("🎤 Current permissions state:", await navigator.permissions.query({ name: 'microphone' }));
-    statusElement.textContent = "Requesting microphone access...";
-    currentStatus = "Requesting microphone access...";
-    
-    // Try to get user media with more detailed error handling
-    console.log("🎤 Calling getUserMedia...");
-    mediaStream = await navigator.mediaDevices.getUserMedia({ 
+    console.log("🎭 Requesting microphone access for talker monitoring...");
+    updateStatus("Requesting microphone access...");
+
+    // Request microphone access
+    mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true
-      } 
+      }
     });
+    
     console.log("✅ Microphone access granted");
     console.log("🎤 Media stream tracks:", mediaStream.getTracks().map(track => ({
       kind: track.kind,
@@ -72,10 +106,11 @@ async function startAudioCapture(sensitivity) {
       readyState: track.readyState
     })));
 
+    // Set up audio analysis
     audioContext = new AudioContext();
     const source = audioContext.createMediaStreamSource(mediaStream);
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048; // Higher FFT size for better analysis
+    analyser.fftSize = 2048;
 
     const bufferLength = analyser.frequencyBinCount;
     dataArray = new Uint8Array(bufferLength);
@@ -83,113 +118,91 @@ async function startAudioCapture(sensitivity) {
     source.connect(analyser);
     isCapturing = true;
 
-    statusElement.textContent = "Listening for screams...";
-    currentStatus = "Listening for screams...";
-    console.log("🎵 Starting audio analysis with sensitivity:", sensitivity);
+    updateStatus("Monitoring for loud talkers...");
+    console.log("🎵 Starting talker monitoring with sensitivity:", sensitivity);
 
     // Start monitoring volume
     intervalId = setInterval(() => {
       if (!isCapturing) return;
-      
+
       try {
         analyser.getByteTimeDomainData(dataArray);
         const rms = calculateRMS(dataArray);
-        currentAudioLevel = rms; // Store current level for popup
+        currentAudioLevel = rms;
 
-        // The sensitivity from the slider (0.1-1.0) needs to be mapped
-        // to the RMS scale. Lower sensitivity = higher threshold needed
-        const threshold = 1.0 - sensitivity; // Invert the sensitivity logic
+        // Calculate threshold (lower sensitivity = higher threshold needed)
+        const threshold = 1.0 - (sensitivity || 0.5);
 
-        // Log every 50th sample to avoid spam
-        if (Math.random() < 0.02) {
-          console.log(`Audio Level: ${rms.toFixed(3)}, Threshold: ${threshold.toFixed(3)}`);
+        // Log more frequently for debugging (every 10th sample instead of 50th)
+        if (Math.random() < 0.1) {
+          console.log(`🎤 Audio Level: ${rms.toFixed(3)}, Threshold: ${threshold.toFixed(3)}, Capturing: ${isCapturing}`);
         }
 
         if (rms > threshold) {
           const now = Date.now();
-          if (now - lastScreamTime < SCREAM_COOLDOWN) {
-            console.log(`⏰ Scream cooldown active, ignoring scream (${SCREAM_COOLDOWN - (now - lastScreamTime)}ms remaining)`);
-            return; // Skip this scream due to cooldown
+          if (now - lastTalkerTime < TALKER_COOLDOWN) {
+            console.log(`⏰ Talker cooldown active, ignoring loud noise (${TALKER_COOLDOWN - (now - lastTalkerTime)}ms remaining)`);
+            return;
           }
-          
-          lastScreamTime = now;
-          console.log(`🔊 SCREAM DETECTED! RMS: ${rms.toFixed(3)}, Threshold: ${threshold.toFixed(3)}`);
-          statusElement.textContent = "SCREAM DETECTED!";
-          currentStatus = "SCREAM DETECTED!";
-          
-          // Send scream detected message to service worker
-          chrome.runtime.sendMessage({ type: 'SCREAM_DETECTED' }).then(response => {
-            console.log("✅ SCREAM_DETECTED message sent successfully:", response);
+
+          lastTalkerTime = now;
+          console.log(`🔊 LOUD TALKER DETECTED! RMS: ${rms.toFixed(3)}, Threshold: ${threshold.toFixed(3)}`);
+          updateStatus("LOUD TALKER DETECTED!");
+
+          // Send loud talker detected message to service worker
+          chrome.runtime.sendMessage({ type: 'LOUD_TALKER_DETECTED' }).then(response => {
+            console.log("✅ LOUD_TALKER_DETECTED message sent successfully:", response);
             
-            // Check if the scream actually resulted in a successful skip action
-            if (response && response.success && response.skipActionTaken) {
-              console.log("✅ Skip action successful, stopping audio capture");
-              // Only stop listening if a skip action was actually performed
-              setTimeout(() => {
-                stopAudioCapture();
-              }, 500);
-            } else {
-              console.log("⚠️ Scream detected but no skip action taken, continuing to listen...");
-              // Reset status and continue listening
-              setTimeout(() => {
-                statusElement.textContent = "Listening for screams...";
-                currentStatus = "Listening for screams...";
-              }, 1000);
-            }
-          }).catch(error => {
-            console.error("❌ Error sending SCREAM_DETECTED message:", error);
-            // Reset status and continue listening on error
+            // Reset status after a short delay
             setTimeout(() => {
-              statusElement.textContent = "Listening for screams...";
-              currentStatus = "Listening for screams...";
-            }, 1000);
+              updateStatus("Monitoring for loud talkers...");
+            }, 2000);
+          }).catch(error => {
+            console.error("❌ Error sending LOUD_TALKER_DETECTED message:", error);
+            setTimeout(() => {
+              updateStatus("Monitoring for loud talkers...");
+            }, 2000);
           });
         }
       } catch (error) {
         console.error("❌ Error in audio monitoring loop:", error);
-        stopAudioCapture();
+        stopTalkerMonitoring();
       }
     }, 100); // Check volume 10 times per second
 
   } catch (error) {
-    console.error("❌ Error capturing audio:", error);
+    console.error("❌ Error starting talker monitoring:", error);
     console.error("❌ Error details:", {
       name: error.name,
       message: error.message,
       stack: error.stack
     });
-    
+
     let errorMessage = "Unknown error";
     if (error.name === 'NotAllowedError' || error.message.includes('Permission dismissed')) {
       errorMessage = "Microphone permission denied. Please allow microphone access in your browser settings.";
-      statusElement.textContent = "❌ Microphone permission denied";
-      currentStatus = "Microphone permission denied";
+      updateStatus("❌ Microphone permission denied");
     } else if (error.name === 'NotFoundError') {
       errorMessage = "No microphone found. Please connect a microphone and try again.";
-      statusElement.textContent = "❌ No microphone found";
-      currentStatus = "No microphone found";
+      updateStatus("❌ No microphone found");
     } else if (error.name === 'NotReadableError') {
       errorMessage = "Microphone is in use by another application. Please close other apps using the microphone.";
-      statusElement.textContent = "❌ Microphone in use";
-      currentStatus = "Microphone in use";
+      updateStatus("❌ Microphone in use");
     } else if (error.name === 'AbortError') {
       errorMessage = "Microphone request was aborted. This might be due to browser security restrictions.";
-      statusElement.textContent = "❌ Microphone request aborted";
-      currentStatus = "Microphone request aborted";
+      updateStatus("❌ Microphone request aborted");
     } else if (error.name === 'SecurityError') {
       errorMessage = "Security error accessing microphone. This might be due to HTTPS requirements.";
-      statusElement.textContent = "❌ Security error";
-      currentStatus = "Security error";
+      updateStatus("❌ Security error");
     } else {
       errorMessage = error.message || "Unknown microphone error";
-      statusElement.textContent = "❌ Microphone error";
-      currentStatus = "Microphone error";
+      updateStatus("❌ Microphone error");
     }
-    
+
     // Inform the service worker of the failure
-    chrome.runtime.sendMessage({ 
-      type: 'AUDIO_CAPTURE_ERROR', 
-      payload: { 
+    chrome.runtime.sendMessage({
+      type: 'AUDIO_CAPTURE_ERROR',
+      payload: {
         message: errorMessage,
         errorType: error.name,
         originalError: error.message,
@@ -198,7 +211,7 @@ async function startAudioCapture(sensitivity) {
           message: error.message,
           stack: error.stack
         }
-      } 
+      }
     }).then(response => {
       console.log("✅ AUDIO_CAPTURE_ERROR message sent successfully:", response);
     }).catch(err => {
@@ -207,57 +220,337 @@ async function startAudioCapture(sensitivity) {
   }
 }
 
-function stopAudioCapture() {
-  console.log("🛑 Stopping audio capture");
-  isCapturing = false;
-  currentAudioLevel = 0;
-  currentStatus = "Audio capture stopped";
-  
-  if (intervalId) {
-    clearInterval(intervalId);
-    intervalId = null;
+// Stop monitoring for loud talkers
+function stopTalkerMonitoring() {
+  if (!isCapturing) {
+    console.log("ℹ️ Not currently monitoring");
+    return;
   }
-  
-  if (mediaStream) {
-    try {
-      mediaStream.getTracks().forEach(track => track.stop());
-    } catch (error) {
-      console.error("❌ Error stopping media stream tracks:", error);
-    }
-    mediaStream = null;
-  }
-  
-  if (audioContext) {
-    try {
-      audioContext.close();
-    } catch (error) {
-      console.error("❌ Error closing audio context:", error);
-    }
-    audioContext = null;
-  }
-  
-  statusElement.textContent = "Audio capture stopped";
-  console.log("✅ Audio capture stopped");
-}
 
-function calculateRMS(dataArray) {
   try {
-    let sumOfSquares = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      // The data is an unsigned 8-bit integer (0-255), where 128 is silence.
-      // We normalize it to a range of -128 to 127.
-      const normalizedSample = dataArray[i] - 128;
-      sumOfSquares += normalizedSample * normalizedSample;
-    }
-    const meanSquare = sumOfSquares / dataArray.length;
-    const rms = Math.sqrt(meanSquare);
+    console.log("🛑 Stopping talker monitoring...");
     
-    // Normalize RMS to 0-1 range for easier threshold comparison
-    return Math.min(rms / 128, 1.0);
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+    }
+
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+      mediaStream = null;
+    }
+
+    isCapturing = false;
+    currentAudioLevel = 0;
+    updateStatus("Talker monitoring stopped");
+    console.log("✅ Talker monitoring stopped successfully");
   } catch (error) {
-    console.error("❌ Error calculating RMS:", error);
-    return 0;
+    console.error("❌ Error stopping talker monitoring:", error);
   }
 }
 
-console.log("🚀 Offscreen document loaded and ready"); 
+// Calculate Root Mean Square for volume measurement
+function calculateRMS(dataArray) {
+  let sum = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    const sample = (dataArray[i] - 128) / 128;
+    sum += sample * sample;
+  }
+  return Math.sqrt(sum / dataArray.length);
+}
+
+// Manual audio level check for debugging
+function checkAudioLevel() {
+  if (!isCapturing) {
+    console.log("❌ Not currently capturing audio");
+    return null;
+  }
+  
+  if (!analyser || !dataArray) {
+    console.log("❌ Audio analyser not initialized");
+    return null;
+  }
+  
+  try {
+    analyser.getByteTimeDomainData(dataArray);
+    const rms = calculateRMS(dataArray);
+    const threshold = 1.0 - (currentSettings?.sensitivity || 0.5);
+    
+    console.log(`🎤 Manual Audio Check:`);
+    console.log(`   - RMS Level: ${rms.toFixed(3)}`);
+    console.log(`   - Threshold: ${threshold.toFixed(3)}`);
+    console.log(`   - Above Threshold: ${rms > threshold ? 'YES' : 'NO'}`);
+    console.log(`   - Capturing: ${isCapturing}`);
+    console.log(`   - Media Stream: ${mediaStream ? 'Active' : 'None'}`);
+    console.log(`   - Audio Context: ${audioContext ? 'Active' : 'None'}`);
+    
+    return { rms, threshold, isAboveThreshold: rms > threshold };
+  } catch (error) {
+    console.error("❌ Error checking audio level:", error);
+    return null;
+  }
+}
+
+// Make debugging functions available globally
+window.cinemaUsherDebug = {
+  checkAudioLevel,
+  getStatus: () => ({
+    isCapturing,
+    currentAudioLevel,
+    mediaStream: !!mediaStream,
+    audioContext: !!audioContext,
+    analyser: !!analyser
+  }),
+  forceStartMonitoring: (sensitivity = 0.5) => startTalkerMonitoring(sensitivity),
+  forceStopMonitoring: () => stopTalkerMonitoring(),
+  testAudioFile: async (profileType) => {
+    console.log(`🧪 Testing audio file for profile: ${profileType}`);
+    try {
+      const audioContext = new AudioContext();
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+      await playAudioFile(profileType, audioContext);
+      console.log(`✅ Audio file test successful for ${profileType}`);
+    } catch (error) {
+      console.error(`❌ Audio file test failed for ${profileType}:`, error);
+    }
+  },
+  listAudioFiles: () => {
+    const audioFiles = {
+      classic: [
+        'audio/profiles/classic/Lal.mp3'
+      ],
+      dramatic: [
+        'audio/profiles/dramatic/gasp.mp3',
+        'audio/profiles/dramatic/shush.mp3',
+        'audio/profiles/dramatic/hush.mp3'
+      ],
+      whisper: [
+        'audio/profiles/whisper/soft.mp3',
+        'audio/profiles/whisper/gentle.mp3',
+        'audio/profiles/whisper/calm.mp3'
+      ],
+      custom1: [
+        'audio/profiles/custom/profile1.mp3'
+      ],
+      custom2: [
+        'audio/profiles/custom/profile2.mp3'
+      ],
+      custom3: [
+        'audio/profiles/custom/profile3.mp3'
+      ]
+    };
+    console.log("🎵 Available audio files:", audioFiles);
+    return audioFiles;
+  }
+};
+
+console.log("🔧 Cinema Usher debug functions available:");
+console.log("- window.cinemaUsherDebug.checkAudioLevel() - Check current audio level");
+console.log("- window.cinemaUsherDebug.getStatus() - Get monitoring status");
+console.log("- window.cinemaUsherDebug.forceStartMonitoring(sensitivity) - Force start monitoring");
+console.log("- window.cinemaUsherDebug.forceStopMonitoring() - Force stop monitoring");
+console.log("- window.cinemaUsherDebug.testAudioFile('classic') - Test audio file loading");
+console.log("- window.cinemaUsherDebug.listAudioFiles() - List all audio files");
+
+// Play different types of scolding sounds
+function playScolding(scoldingType) {
+  try {
+    console.log(`🎭 Playing ${scoldingType} scolding...`);
+    
+    // Create audio context for scolding sounds
+    let scoldingContext;
+    try {
+      scoldingContext = new AudioContext();
+      // Resume context if it's suspended (required for user interaction)
+      if (scoldingContext.state === 'suspended') {
+        scoldingContext.resume();
+      }
+    } catch (error) {
+      console.error("❌ Error creating audio context for scolding:", error);
+      return;
+    }
+    
+    // Try to play MP3 file first, fallback to generated sound
+    playAudioFile(scoldingType, scoldingContext).catch(error => {
+      console.warn(`⚠️ Could not play audio file for ${scoldingType}, falling back to generated sound:`, error);
+      playGeneratedSound(scoldingType, scoldingContext);
+    });
+    
+  } catch (error) {
+    console.error("❌ Error playing scolding:", error);
+  }
+}
+
+// Play audio file from profiles
+async function playAudioFile(profileType, audioContext) {
+  try {
+    console.log(`🎵 Attempting to play audio file for profile: ${profileType}`);
+    
+    // Get random audio file from profile directory
+    const audioFiles = getAudioFilesForProfile(profileType);
+    if (audioFiles.length === 0) {
+      throw new Error(`No audio files found for profile: ${profileType}`);
+    }
+    
+    // Select random audio file
+    const randomFile = audioFiles[Math.floor(Math.random() * audioFiles.length)];
+    const audioUrl = chrome.runtime.getURL(randomFile);
+    
+    console.log(`🎵 Loading audio file: ${randomFile}`);
+    console.log(`🎵 Audio URL: ${audioUrl}`);
+    
+    // Fetch and decode audio file
+    const response = await fetch(audioUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio file: ${response.statusText} (${response.status})`);
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    // Create audio source and play
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
+    source.start(0);
+    
+    console.log(`✅ Audio file played successfully: ${randomFile}`);
+    
+  } catch (error) {
+    console.error(`❌ Error playing audio file for ${profileType}:`, error);
+    console.log(`🔍 Profile type: ${profileType}`);
+    console.log(`🔍 Available profiles: classic, dramatic, whisper, custom1, custom2, custom3`);
+    throw error; // Re-throw to trigger fallback
+  }
+}
+
+// Get audio files for specific profile
+function getAudioFilesForProfile(profileType) {
+  const audioFiles = {
+    classic: [
+      'audio/profiles/classic/Lal.mp3'  // Updated to match actual file
+    ],
+    dramatic: [
+      'audio/profiles/dramatic/gasp.mp3',
+      'audio/profiles/dramatic/shush.mp3',
+      'audio/profiles/dramatic/hush.mp3'
+    ],
+    whisper: [
+      'audio/profiles/whisper/soft.mp3',
+      'audio/profiles/whisper/gentle.mp3',
+      'audio/profiles/whisper/calm.mp3'
+    ],
+    custom1: [
+      'audio/profiles/custom/profile1.mp3'
+    ],
+    custom2: [
+      'audio/profiles/custom/profile2.mp3'
+    ],
+    custom3: [
+      'audio/profiles/custom/profile3.mp3'
+    ]
+  };
+  
+  const files = audioFiles[profileType] || audioFiles.classic;
+  console.log(`🎵 Audio files for profile '${profileType}':`, files);
+  return files;
+}
+
+// Fallback to generated sounds (existing oscillator code)
+function playGeneratedSound(scoldingType, audioContext) {
+  switch (scoldingType) {
+    case 'classic':
+      playClassicScolding(audioContext);
+      break;
+    case 'dramatic':
+      playDramaticScolding(audioContext);
+      break;
+    case 'whisper':
+      playWhisperScolding(audioContext);
+      break;
+    default:
+      playClassicScolding(audioContext);
+  }
+}
+
+// Play classic usher scolding
+function playClassicScolding(audioContext) {
+  try {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Create a dramatic "SHHH!" sound
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.5);
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+    
+    console.log("🎭 Classic scolding played!");
+  } catch (error) {
+    console.error("❌ Error playing classic scolding:", error);
+  }
+}
+
+// Play dramatic scolding
+function playDramaticScolding(audioContext) {
+  try {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Create a more dramatic sound
+    oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(150, audioContext.currentTime + 1);
+    
+    gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 1);
+    
+    console.log("🎭 Dramatic scolding played!");
+  } catch (error) {
+    console.error("❌ Error playing dramatic scolding:", error);
+  }
+}
+
+// Play whisper scolding
+function playWhisperScolding(audioContext) {
+  try {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Create a softer, whisper-like sound
+    oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(300, audioContext.currentTime + 0.3);
+    
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+    
+    console.log("🎭 Whisper scolding played!");
+  } catch (error) {
+    console.error("❌ Error playing whisper scolding:", error);
+  }
+} 

@@ -1,83 +1,111 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cinema Usher</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="container">
-    <header>
-      <div class="logo">&#127908;</div>
-      <h1>Scream to Skip</h1>
-      <p class="subtitle">Skip YouTube ads with your voice</p>
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🎭</span>
+        <h1 class="title">Cinema Usher</h1>
+      </div>
+      <div class="status">
+        <span class="status-text" id="status">Ready</span>
+        <span class="status-dot" id="statusDot"></span>
+      </div>
     </header>
 
-    <main>
-      <div class="control-group">
+    <main class="main">
+      <div class="controls">
         <div class="control-item">
-          <div class="control-label">
-            <span>Enable</span>
-            <div class="status-dot" id="statusDot"></div>
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="toggle">
-            <span class="toggle-slider"></span>
+          <label class="control-label">
+            <span class="label-icon">🎬</span>
+            <span class="label-text">Enable Usher</span>
           </label>
+          <div class="toggle-container">
+            <input type="checkbox" id="toggle" class="toggle-input">
+            <label for="toggle" class="toggle-label"></label>
+          </div>
         </div>
 
         <div class="control-item">
-          <div class="control-label">
-            <span>Sensitivity</span>
-            <span class="value-display" id="sensitivityValue">0.5</span>
-          </div>
-          <div class="slider-container">
-            <input type="range" min="0.1" max="1" value="0.5" step="0.1" id="sensitivity">
-            <div class="slider-labels">
-              <span>Quiet</span>
-              <span>Loud</span>
-            </div>
-          </div>
+          <label class="control-label">
+            <span class="label-icon">🎚️</span>
+            <span class="label-text">Sensitivity</span>
+            <span class="sensitivity-value" id="sensitivityValue">50%</span>
+          </label>
+          <input 
+            type="range" 
+            id="sensitivity" 
+            class="sensitivity-slider"
+            min="0" 
+            max="1" 
+            step="0.05" 
+            value="0.5"
+          >
         </div>
 
-        <!-- Live Audio Meter -->
-        <div class="control-item audio-meter-container">
-          <div class="control-label">
-            <span>Live Audio Level</span>
-            <span class="value-display" id="audioLevel">0.00</span>
+        <div class="control-item">
+          <label class="control-label">
+            <span class="label-icon">🎭</span>
+            <span class="label-text">Scolding Profile</span>
+          </label>
+          <select id="scoldingType" class="scolding-select">
+            <option value="classic">Cinema Stars</option>
+            <option value="dramatic">Dramatic</option>
+            <option value="whisper">Whisper</option>
+            <option value="custom1">Custom Profile 1</option>
+            <option value="custom2">Custom Profile 2</option>
+            <option value="custom3">Custom Profile 3</option>
+          </select>
+        </div>
+
+        <div class="audio-meter-container">
+          <div class="meter-header">
+            <span class="meter-icon">🎤</span>
+            <span class="meter-title">Live Audio Level</span>
+            <span class="audio-level" id="audioLevel">0.00</span>
           </div>
-          <div class="audio-meter">
-            <div class="meter-bar">
-              <div class="level-indicator" id="levelIndicator"></div>
-              <div class="threshold-line" id="thresholdLine"></div>
-            </div>
-            <div class="meter-labels">
-              <span>0</span>
-              <span>0.5</span>
-              <span>1.0</span>
-            </div>
+          <div class="meter-bar">
+            <div class="level-indicator" id="levelIndicator"></div>
+            <div class="threshold-line" id="thresholdLine"></div>
           </div>
-          <div class="meter-status" id="meterStatus">Waiting for audio...</div>
+          <div class="meter-labels">
+            <span class="meter-label">Quiet</span>
+            <span class="meter-label">Loud</span>
+          </div>
+          <div class="meter-status" id="meterStatus">No audio detected</div>
         </div>
 
         <div class="control-item">
           <button id="testBtn" class="test-button">
-            <span class="test-icon">&#127925;</span>
-            <span class="test-text">Test Skip Action</span>
+            <span class="test-icon">🎭</span>
+            <span class="test-text">Test Scolding</span>
+          </button>
+        </div>
+
+        <div class="control-item">
+          <button id="testPauseBtn" class="test-button">
+            <span class="test-icon">⏸️</span>
+            <span class="test-text">Test Pause & Exit Fullscreen</span>
           </button>
         </div>
 
         <div class="control-item">
           <button id="debugBtn" class="debug-button">
-            <span class="debug-icon">&#128269;</span>
-            <span class="debug-text">Debug Page Elements</span>
+            <span class="debug-icon">🔧</span>
+            <span class="debug-text">Debug Audio</span>
           </button>
         </div>
       </div>
     </main>
 
-    <footer>
-      <div class="status" id="status">
-        Ready to scream
-      </div>
+    <footer class="footer">
+      <p class="footer-text">Shame your friends for talking during movies! 🎭<br>Automatically pauses video and exits fullscreen when triggered!</p>
     </footer>
   </div>
 

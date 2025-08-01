@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Scream to Skip",
+  "name": "Cinema Usher",
   "version": "1.0",
-  "description": "Skip YouTube ads by screaming!",
-  "permissions": ["storage", "scripting", "debugger", "offscreen"],
-  "host_permissions": ["*://*.youtube.com/*"],
+  "description": "Shame your friends for talking during movies! A dramatic usher that scolds loud talkers.",
+  "permissions": ["storage", "scripting", "offscreen", "tabs"],
+  "host_permissions": ["*://*/*"],
   "background": {
     "service_worker": "service-worker.js"
   },
@@ -13,9 +13,18 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*"],
+      "matches": ["*://*/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "audio/profiles/*/*.mp3",
+        "audio/default/*.mp3"
+      ],
+      "matches": ["<all_urls>"]
     }
   ]
 }

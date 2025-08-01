@@ -52,8 +52,8 @@ export default function Dashboard() {
       <div className="container mx-auto px-6 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-slate-800 mb-2">Welcome back, Voice Warrior! 🎤</h2>
-          <p className="text-slate-600">Monitor your ad-blocking performance and fine-tune your settings</p>
+          <h2 className="text-3xl font-bold text-slate-800 mb-2">Welcome back, Voice Maker! 🎤</h2>
+          <p className="text-slate-600">Monitor your ocha kond skipping performance and fine-tune your settings</p>
         </div>
 
         {/* Stats Grid */}
@@ -220,34 +220,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Achievement Section */}
-        <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-purple-50">
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold text-slate-800 text-center">
-              🏆 Malayali Achievements Unlocked
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-6 rounded-xl text-center shadow-sm">
-                <div className="text-3xl mb-3">🎭</div>
-                <div className="font-semibold text-slate-800 mb-1">Mohanlal Level</div>
-                <div className="text-sm text-slate-600">Master of dramatic expression</div>
-              </div>
-              <div className="bg-white p-6 rounded-xl text-center shadow-sm">
-                <div className="text-3xl mb-3">🌶️</div>
-                <div className="font-semibold text-slate-800 mb-1">Spice Tolerance</div>
-                <div className="text-sm text-slate-600">Can handle the heat like a pro</div>
-              </div>
-              <div className="bg-white p-6 rounded-xl text-center shadow-sm">
-                <div className="text-3xl mb-3">🥥</div>
-                <div className="font-semibold text-slate-800 mb-1">Coconut Crusher</div>
-                <div className="text-sm text-slate-600">True Kerala spirit activated</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

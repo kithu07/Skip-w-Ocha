@@ -1,15 +1,13 @@
 // popup.js - Cinema Usher Popup Interface
 
-// DOM elements
+// UI elements
 const toggle = document.getElementById('toggle');
 const sensitivity = document.getElementById('sensitivity');
 const sensitivityValue = document.getElementById('sensitivityValue');
 const scoldingType = document.getElementById('scoldingType');
 const status = document.getElementById('status');
 const statusDot = document.getElementById('statusDot');
-const testBtn = document.getElementById('testBtn');
-const debugBtn = document.getElementById('debugBtn');
-const testPauseBtn = document.getElementById('testPauseBtn'); // Added for new test button
+const counterValue = document.getElementById('counterValue'); // Added for counter display
 
 // Audio meter elements
 const audioLevel = document.getElementById('audioLevel');
@@ -29,22 +27,30 @@ let audioMeterInterval = null;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log("🎭 Cinema Usher popup initializing...");
-  
   try {
-    await loadSettings();
-    updateUI();
-    setupEventListeners();
-    startAudioMeterUpdates();
+    console.log("🎭 Mindathe Irikk popup initializing...");
     
-    // If monitoring was previously enabled, start it automatically
+    // Load current settings
+    await loadSettings();
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Update UI with current settings
+    updateUI();
+    
+    // Update counter display
+    await updateCounter();
+    
+    // Only start audio meter if extension is enabled
     if (currentSettings.isEnabled) {
-      console.log("🎬 Restoring previous monitoring state...");
-      await sendMessageToServiceWorker({
-        type: 'START_MONITORING',
-        sensitivity: currentSettings.sensitivity
-      });
+      console.log("🎤 Starting audio meter (extension enabled)");
+      startAudioMeterUpdates();
+    } else {
+      console.log("🛑 Audio meter not started (extension disabled)");
     }
+    
+    console.log("✅ Mindathe Irikk popup initialized");
   } catch (error) {
     console.error("❌ Error initializing popup:", error);
   }
@@ -100,12 +106,43 @@ async function sendMessageToServiceWorker(message, maxRetries = 3) {
   }
 }
 
+// Update counter display
+async function updateCounter() {
+  try {
+    const response = await sendMessageToServiceWorker({
+      type: 'GET_SCOLDING_COUNTER'
+    });
+    
+    if (response && response.success) {
+      const counter = response.counter;
+      counterValue.textContent = counter.toString();
+      
+      // Add visual warnings based on counter value
+      counterValue.className = 'counter-value'; // Reset classes
+      
+      if (counter >= 8) {
+        counterValue.classList.add('danger');
+        console.log("🚨 WARNING: Counter is at dangerous level!");
+      } else if (counter >= 5) {
+        counterValue.classList.add('warning');
+        console.log("⚠️ WARNING: Counter is getting high!");
+      }
+    } else {
+      counterValue.textContent = '0';
+      counterValue.className = 'counter-value';
+    }
+  } catch (error) {
+    console.error("❌ Error updating counter:", error);
+    counterValue.textContent = '0';
+    counterValue.className = 'counter-value';
+  }
+}
+
 // Update UI based on current settings
 function updateUI() {
   toggle.checked = currentSettings.isEnabled;
   sensitivity.value = currentSettings.sensitivity;
   // Update sensitivity value display
-  const sensitivityValue = document.getElementById('sensitivityValue');
   if (sensitivityValue) {
     sensitivityValue.textContent = `${Math.round(currentSettings.sensitivity * 100)}%`;
   }
@@ -113,204 +150,128 @@ function updateUI() {
   
   // Update status
   if (currentSettings.isEnabled) {
-    status.textContent = 'Usher Active';
-    statusDot.className = 'status-dot enabled';
+    if (status) status.textContent = 'Extension Active';
+    if (statusDot) statusDot.className = 'status-dot enabled';
   } else {
-    status.textContent = 'Usher Disabled';
-    statusDot.className = 'status-dot disabled';
+    if (status) status.textContent = 'Extension Disabled';
+    if (statusDot) statusDot.className = 'status-dot disabled';
   }
 }
 
 // Setup event listeners
 function setupEventListeners() {
   // Toggle switch
-  toggle.addEventListener('change', async () => {
-    try {
-      currentSettings.isEnabled = toggle.checked;
-      await saveSettings();
-      updateUI();
-      
-      // Send settings update to service worker
-      await sendMessageToServiceWorker({
-        type: 'UPDATE_SETTINGS',
-        settings: currentSettings
-      });
-      
-      // Automatically start/stop monitoring based on toggle state
-      if (currentSettings.isEnabled) {
-        console.log("🎬 Toggle enabled - starting audio monitoring...");
+  if (toggle) {
+    toggle.addEventListener('change', async () => {
+      try {
+        currentSettings.isEnabled = toggle.checked;
+        await saveSettings();
+        updateUI();
+        
+        // Send settings update to service worker
         await sendMessageToServiceWorker({
-          type: 'START_MONITORING',
-          sensitivity: currentSettings.sensitivity
+          type: 'UPDATE_SETTINGS',
+          settings: currentSettings
         });
-      } else {
-        console.log("🛑 Toggle disabled - stopping audio monitoring...");
-        await sendMessageToServiceWorker({
-          type: 'STOP_MONITORING'
-        });
+        
+        // Automatically start/stop monitoring based on toggle state
+        if (currentSettings.isEnabled) {
+          console.log("🎬 Toggle enabled - starting audio monitoring...");
+          await sendMessageToServiceWorker({
+            type: 'START_MONITORING',
+            sensitivity: currentSettings.sensitivity
+          });
+          // Start audio meter updates
+          startAudioMeterUpdates();
+          // Update counter (should be 0 after reset)
+          await updateCounter();
+        } else {
+          console.log("🛑 Toggle disabled - stopping audio monitoring...");
+          await sendMessageToServiceWorker({
+            type: 'STOP_MONITORING'
+          });
+          // Stop audio meter updates
+          if (audioMeterInterval) {
+            clearInterval(audioMeterInterval);
+            audioMeterInterval = null;
+            console.log("🛑 Audio meter updates stopped");
+          }
+        }
+        
+        console.log("✅ Toggle updated:", currentSettings.isEnabled);
+      } catch (error) {
+        console.error("❌ Error updating toggle:", error);
       }
-      
-      console.log("✅ Toggle updated:", currentSettings.isEnabled);
-    } catch (error) {
-      console.error("❌ Error updating toggle:", error);
-    }
-  });
+    });
+  }
 
   // Sensitivity slider
-  sensitivity.addEventListener('input', async () => {
-    try {
-      currentSettings.sensitivity = parseFloat(sensitivity.value);
-      // Update sensitivity value display
-      const sensitivityValue = document.getElementById('sensitivityValue');
-      if (sensitivityValue) {
-        sensitivityValue.textContent = `${Math.round(currentSettings.sensitivity * 100)}%`;
-      }
-      await saveSettings();
-      
-      // Send settings update to service worker
-      await sendMessageToServiceWorker({
-        type: 'UPDATE_SETTINGS',
-        settings: currentSettings
-      });
-      
-      // If monitoring is enabled, restart it with new sensitivity
-      if (currentSettings.isEnabled) {
-        console.log("🎚️ Sensitivity changed - restarting monitoring with new sensitivity...");
+  if (sensitivity) {
+    sensitivity.addEventListener('input', async () => {
+      try {
+        currentSettings.sensitivity = parseFloat(sensitivity.value);
+        // Update sensitivity value display
+        if (sensitivityValue) {
+          sensitivityValue.textContent = `${Math.round(currentSettings.sensitivity * 100)}%`;
+        }
+        await saveSettings();
+        
+        // Send settings update to service worker
         await sendMessageToServiceWorker({
-          type: 'STOP_MONITORING'
+          type: 'UPDATE_SETTINGS',
+          settings: currentSettings
         });
-        await sendMessageToServiceWorker({
-          type: 'START_MONITORING',
-          sensitivity: currentSettings.sensitivity
-        });
+        
+        // If monitoring is enabled, restart it with new sensitivity
+        if (currentSettings.isEnabled) {
+          console.log("🎚️ Sensitivity changed - restarting monitoring with new sensitivity...");
+          await sendMessageToServiceWorker({
+            type: 'STOP_MONITORING'
+          });
+          await sendMessageToServiceWorker({
+            type: 'START_MONITORING',
+            sensitivity: currentSettings.sensitivity
+          });
+        }
+        
+        console.log("✅ Sensitivity updated:", currentSettings.sensitivity);
+      } catch (error) {
+        console.error("❌ Error updating sensitivity:", error);
       }
-      
-      console.log("✅ Sensitivity updated:", currentSettings.sensitivity);
-    } catch (error) {
-      console.error("❌ Error updating sensitivity:", error);
-    }
-  });
+    });
+  }
 
   // Also save settings when user finishes dragging
-  sensitivity.addEventListener('change', async () => {
-    try {
-      await saveSettings();
-      console.log("✅ Sensitivity settings saved");
-    } catch (error) {
-      console.error("❌ Error saving sensitivity settings:", error);
-    }
-  });
+  if (sensitivity) {
+    sensitivity.addEventListener('change', async () => {
+      try {
+        await saveSettings();
+        console.log("✅ Sensitivity settings saved");
+      } catch (error) {
+        console.error("❌ Error saving sensitivity settings:", error);
+      }
+    });
+  }
 
   // Scolding type selector
-  scoldingType.addEventListener('change', async () => {
-    try {
-      currentSettings.scoldingType = scoldingType.value;
-      await saveSettings();
-      
-      // Send settings update to service worker
-      await sendMessageToServiceWorker({
-        type: 'UPDATE_SETTINGS',
-        settings: currentSettings
-      });
-      
-      console.log("✅ Scolding type updated:", currentSettings.scoldingType);
-    } catch (error) {
-      console.error("❌ Error updating scolding type:", error);
-    }
-  });
-
-  // Test button
-  testBtn.addEventListener('click', async () => {
-    try {
-      console.log("🎭 Testing scolding sound...");
-      await sendMessageToServiceWorker({
-        type: 'LOUD_TALKER_DETECTED'
-      });
-      console.log("✅ Test scolding triggered");
-    } catch (error) {
-      console.error("❌ Error testing scolding:", error);
-    }
-  });
-
-  // Test pause and exit fullscreen button
-  testPauseBtn.addEventListener('click', async () => {
-    try {
-      console.log("⏸️ Testing pause and exit fullscreen...");
-      
-      // Get the active tab
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      if (activeTab) {
-        // Send spacebar to pause audio/video
-        await chrome.tabs.sendMessage(activeTab.id, {
-          type: 'SEND_KEYBOARD_EVENT',
-          key: ' ',
-          description: 'pause audio/video (test)'
+  if (scoldingType) {
+    scoldingType.addEventListener('change', async () => {
+      try {
+        currentSettings.scoldingType = scoldingType.value;
+        await saveSettings();
+        
+        // Send settings update to service worker
+        await sendMessageToServiceWorker({
+          type: 'UPDATE_SETTINGS',
+          settings: currentSettings
         });
         
-        // Small delay
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Send escape to exit fullscreen
-        await chrome.tabs.sendMessage(activeTab.id, {
-          type: 'SEND_KEYBOARD_EVENT',
-          key: 'Escape',
-          description: 'exit fullscreen (test)'
-        });
-        
-        console.log("✅ Test pause and exit fullscreen triggered");
-      } else {
-        console.log("⚠️ No active tab found for testing");
+        console.log("✅ Scolding type updated:", currentSettings.scoldingType);
+      } catch (error) {
+        console.error("❌ Error updating scolding type:", error);
       }
-    } catch (error) {
-      console.error("❌ Error testing pause and exit fullscreen:", error);
-    }
-  });
-
-  // Debug button
-  debugBtn.addEventListener('click', async () => {
-    try {
-      console.log("🔧 Debug button clicked");
-      debugBtn.disabled = true;
-      const debugText = debugBtn.querySelector('.debug-text');
-      debugText.textContent = 'Checking...';
-
-      // Get current settings and status
-      const settingsResponse = await sendMessageToServiceWorker({
-        type: 'GET_SETTINGS'
-      });
-
-      // Get monitoring status
-      const statusResponse = await sendMessageToServiceWorker({
-        type: 'GET_MONITORING_STATUS'
-      });
-
-      // Get audio level
-      const audioResponse = await sendMessageToServiceWorker({
-        type: 'GET_AUDIO_LEVEL',
-        sensitivity: currentSettings.sensitivity
-      });
-
-      console.log("🔧 Debug Information:");
-      console.log("   - Settings:", settingsResponse?.settings);
-      console.log("   - Monitoring Status:", statusResponse);
-      console.log("   - Audio Level:", audioResponse?.audioLevel);
-      console.log("   - Threshold:", audioResponse?.threshold);
-      console.log("   - Current Settings:", currentSettings);
-      console.log("   - Toggle State:", toggle.checked);
-
-      debugText.textContent = 'Debug Complete!';
-      setTimeout(() => {
-        debugBtn.disabled = false;
-        debugText.textContent = 'Debug Audio';
-      }, 2000);
-    } catch (error) {
-      console.error("❌ Error handling debug button click:", error);
-      debugBtn.disabled = false;
-      const debugText = debugBtn.querySelector('.debug-text');
-      debugText.textContent = 'Debug Audio';
-    }
-  });
+    });
+  }
 }
 
 // Start audio meter updates
@@ -338,6 +299,11 @@ function startAudioMeterUpdates() {
       } else {
         console.warn("⚠️ Audio meter update failed:", response);
       }
+      
+      // Update counter periodically (every 10th update = every 2 seconds)
+      if (Math.random() < 0.1) {
+        await updateCounter();
+      }
     } catch (error) {
       console.error("❌ Error updating audio meter:", error);
     }
@@ -348,25 +314,31 @@ function startAudioMeterUpdates() {
 function updateAudioMeter(level, threshold) {
   try {
     // Update level display
-    audioLevel.textContent = level.toFixed(3);
+    if (audioLevel) audioLevel.textContent = level.toFixed(3);
     
     // Update level indicator
-    const levelPercent = Math.min(level * 100, 100);
-    levelIndicator.style.width = levelPercent + '%';
+    if (levelIndicator) {
+      const levelPercent = Math.min(level * 100, 100);
+      levelIndicator.style.width = levelPercent + '%';
+    }
     
     // Update threshold line
-    const thresholdPercent = Math.min(threshold * 100, 100);
-    thresholdLine.style.left = thresholdPercent + '%';
+    if (thresholdLine) {
+      const thresholdPercent = Math.min(threshold * 100, 100);
+      thresholdLine.style.left = thresholdPercent + '%';
+    }
     
     // Update meter status
-    if (level > threshold) {
-      meterStatus.textContent = 'LOUD TALKER DETECTED!';
-      meterStatus.className = 'meter-status active';
-      levelIndicator.className = 'level-indicator active';
-    } else {
-      meterStatus.textContent = 'Monitoring audio...';
-      meterStatus.className = 'meter-status';
-      levelIndicator.className = 'level-indicator';
+    if (meterStatus) {
+      if (level > threshold) {
+        meterStatus.textContent = 'LOUD TALKER DETECTED!';
+        meterStatus.className = 'meter-status active';
+        if (levelIndicator) levelIndicator.className = 'level-indicator active';
+      } else {
+        meterStatus.textContent = 'Monitoring audio...';
+        meterStatus.className = 'meter-status';
+        if (levelIndicator) levelIndicator.className = 'level-indicator';
+      }
     }
   } catch (error) {
     console.error("❌ Error updating audio meter:", error);

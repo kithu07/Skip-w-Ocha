@@ -112,9 +112,34 @@ body {
 
 .sensitivity-value {
   font-size: 12px;
-  opacity: 0.8;
-  min-width: 40px;
-  text-align: right;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.counter-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.counter-value.warning {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  animation: pulse 1s infinite;
+}
+
+.counter-value.danger {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  animation: pulse 0.5s infinite;
 }
 
 /* Toggle Switch */
@@ -298,69 +323,7 @@ body {
   font-weight: 600;
 }
 
-/* Buttons */
-.test-button {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: 8px;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  background: rgba(245, 158, 11, 0.2);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-}
-
-.test-button:hover {
-  background: rgba(245, 158, 11, 0.3);
-  transform: translateY(-1px);
-}
-
-.test-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.debug-button {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: 8px;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  background: rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.4);
-}
-
-.debug-button:hover {
-  background: rgba(59, 130, 246, 0.3);
-  transform: translateY(-1px);
-}
-
-.debug-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.test-icon,
-.debug-icon {
-  font-size: 16px;
-}
+/* Remove test button and debug button styles - no longer needed */
 
 /* Footer */
 .footer {

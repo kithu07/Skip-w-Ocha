@@ -1,4 +1,4 @@
-// offscreen.js - Cinema Usher Audio Processing
+// offscreen.js - Mindathe Irikk Audio Processing
 // Monitors microphone for loud talkers and triggers scolding actions
 
 let mediaStream = null;
@@ -15,9 +15,9 @@ const statusElement = document.getElementById('status');
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
-  console.log("🎭 Cinema Usher offscreen document loaded");
+  console.log("🎭 Mindathe Irikk offscreen document loaded");
   if (statusElement) {
-    statusElement.textContent = "Cinema Usher ready";
+    statusElement.textContent = "Mindathe Irikk ready";
   }
 });
 
@@ -297,7 +297,7 @@ function checkAudioLevel() {
 }
 
 // Make debugging functions available globally
-window.cinemaUsherDebug = {
+window.mindatheIrikkDebug = {
   checkAudioLevel,
   getStatus: () => ({
     isCapturing,
@@ -321,10 +321,23 @@ window.cinemaUsherDebug = {
       console.error(`❌ Audio file test failed for ${profileType}:`, error);
     }
   },
+  testRandomSelection: (profileType, count = 5) => {
+    console.log(`🎲 Testing random selection for profile: ${profileType} (${count} times)`);
+    const audioFiles = getAudioFilesForProfile(profileType);
+    console.log(`📁 Available files:`, audioFiles);
+    
+    for (let i = 0; i < count; i++) {
+      const randomIndex = Math.floor(Math.random() * audioFiles.length);
+      const selectedFile = audioFiles[randomIndex];
+      console.log(`🎲 Selection ${i + 1}: ${selectedFile} (index: ${randomIndex})`);
+    }
+  },
   listAudioFiles: () => {
     const audioFiles = {
       classic: [
-        'audio/profiles/classic/Lal.mp3'
+        'audio/profiles/classic/lal.mp3',
+        'audio/profiles/classic/linecut.mp3',
+        'audio/profiles/classic/amban.mp3'
       ],
       dramatic: [
         'audio/profiles/dramatic/gasp.mp3',
@@ -351,13 +364,14 @@ window.cinemaUsherDebug = {
   }
 };
 
-console.log("🔧 Cinema Usher debug functions available:");
-console.log("- window.cinemaUsherDebug.checkAudioLevel() - Check current audio level");
-console.log("- window.cinemaUsherDebug.getStatus() - Get monitoring status");
-console.log("- window.cinemaUsherDebug.forceStartMonitoring(sensitivity) - Force start monitoring");
-console.log("- window.cinemaUsherDebug.forceStopMonitoring() - Force stop monitoring");
-console.log("- window.cinemaUsherDebug.testAudioFile('classic') - Test audio file loading");
-console.log("- window.cinemaUsherDebug.listAudioFiles() - List all audio files");
+console.log("🔧 Mindathe Irikk debug functions available:");
+console.log("- window.mindatheIrikkDebug.checkAudioLevel() - Check current audio level");
+console.log("- window.mindatheIrikkDebug.getStatus() - Get monitoring status");
+console.log("- window.mindatheIrikkDebug.forceStartMonitoring(sensitivity) - Force start monitoring");
+console.log("- window.mindatheIrikkDebug.forceStopMonitoring() - Force stop monitoring");
+console.log("- window.mindatheIrikkDebug.testAudioFile('classic') - Test audio file loading");
+console.log("- window.mindatheIrikkDebug.testRandomSelection('classic', 5) - Test random selection");
+console.log("- window.mindatheIrikkDebug.listAudioFiles() - List all audio files");
 
 // Play different types of scolding sounds
 function playScolding(scoldingType) {
@@ -399,11 +413,13 @@ async function playAudioFile(profileType, audioContext) {
       throw new Error(`No audio files found for profile: ${profileType}`);
     }
     
-    // Select random audio file
-    const randomFile = audioFiles[Math.floor(Math.random() * audioFiles.length)];
-    const audioUrl = chrome.runtime.getURL(randomFile);
+    // Select random audio file with better randomization
+    const randomIndex = Math.floor(Math.random() * audioFiles.length);
+    const selectedFile = audioFiles[randomIndex];
+    const audioUrl = chrome.runtime.getURL(selectedFile);
     
-    console.log(`🎵 Loading audio file: ${randomFile}`);
+    console.log(`🎵 Random selection: ${randomIndex + 1}/${audioFiles.length}`);
+    console.log(`🎵 Selected file: ${selectedFile}`);
     console.log(`🎵 Audio URL: ${audioUrl}`);
     
     // Fetch and decode audio file
@@ -421,7 +437,7 @@ async function playAudioFile(profileType, audioContext) {
     source.connect(audioContext.destination);
     source.start(0);
     
-    console.log(`✅ Audio file played successfully: ${randomFile}`);
+    console.log(`✅ Audio file played successfully: ${selectedFile}`);
     
   } catch (error) {
     console.error(`❌ Error playing audio file for ${profileType}:`, error);
@@ -435,11 +451,14 @@ async function playAudioFile(profileType, audioContext) {
 function getAudioFilesForProfile(profileType) {
   const audioFiles = {
     classic: [
-      'audio/profiles/classic/Lal.mp3'  // Updated to match actual file
+      'audio/profiles/classic/lal.mp3',      // Fixed case sensitivity
+      'audio/profiles/classic/linecut.mp3',  // Added actual file
+      'audio/profiles/classic/amban.mp3',
+      'audio/profiles/classic/gopi.mp3'    // Added actual file
     ],
     dramatic: [
-      'audio/profiles/dramatic/gasp.mp3',
-      'audio/profiles/dramatic/shush.mp3',
+      'audio/profiles/dramatic/gadhe.mp3',
+      'audio/profiles/dramatic/pattijoel.mp3',
       'audio/profiles/dramatic/hush.mp3'
     ],
     whisper: [

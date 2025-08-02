@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Cinema Usher",
+  "name": "Mindathe Irikk",
   "version": "1.0",
   "description": "Shame your friends for talking during movies! A dramatic usher that scolds loud talkers.",
   "permissions": ["storage", "scripting", "offscreen", "tabs"],

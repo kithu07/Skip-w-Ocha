@@ -1,5 +1,5 @@
-// content.js - Cinema Usher Content Script
-// Simple content script for Cinema Usher functionality
+// content.js - Mindathe Irikk Content Script
+// Simple content script for Mindathe Irikk functionality
 
 // Listen for messages from service worker
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -168,20 +168,20 @@ window.addEventListener('error', (event) => {
 
 // Test message to verify service worker communication
 setTimeout(() => {
-  console.log("🧪 Testing Cinema Usher service worker communication...");
+  console.log("🧪 Testing Mindathe Irikk service worker communication...");
   chrome.runtime.sendMessage({
     type: 'TEST_MESSAGE',
     payload: { message: 'Content script is working' }
   }).then(response => {
-    console.log("✅ Cinema Usher service worker communication test successful:", response);
+    console.log("✅ Mindathe Irikk service worker communication test successful:", response);
   }).catch(error => {
-    console.error("❌ Cinema Usher service worker communication test failed:", error);
+    console.error("❌ Mindathe Irikk service worker communication test failed:", error);
   });
 }, 2000);
 
 // Simple test function to verify basic functionality
 function runBasicTests() {
-  console.log("🧪 Running Cinema Usher basic functionality tests...");
+  console.log("🧪 Running Mindathe Irikk basic functionality tests...");
   
   // Test 1: Check if we're on a valid page
   const isValidPage = window.location.href.startsWith('http');
@@ -197,8 +197,8 @@ function runBasicTests() {
 setTimeout(runBasicTests, 3000);
 
 // Manual test functions for debugging (can be called from console)
-window.testCinemaUsher = function() {
-  console.log("🧪 Manual test: Testing Cinema Usher functionality...");
+window.testMindatheIrikk = function() {
+  console.log("🧪 Manual test: Testing Mindathe Irikk functionality...");
   
   // Test service worker communication
   chrome.runtime.sendMessage({
@@ -212,7 +212,7 @@ window.testCinemaUsher = function() {
 };
 
 // Make debugging functions available globally
-window.cinemaUsherDebug = {
+window.mindatheIrikkDebug = {
   testKeyboardEvent: (key) => {
     console.log(`🧪 Testing keyboard event: ${key}`);
     sendKeyboardEvent(key, `test-${key}`);
@@ -239,15 +239,40 @@ window.cinemaUsherDebug = {
     };
     console.log("🔍 Fullscreen status:", status);
     return status;
+  },
+  testRedirect: async () => {
+    console.log("🧪 Testing redirect functionality...");
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'TEST_REDIRECT'
+      });
+      console.log("✅ Redirect test triggered");
+    } catch (error) {
+      console.error("❌ Error testing redirect:", error);
+    }
+  },
+  setCounter: async (value) => {
+    console.log(`🧪 Setting counter to ${value}...`);
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'SET_SCOLDING_COUNTER',
+        counter: value
+      });
+      console.log("✅ Counter set:", response);
+    } catch (error) {
+      console.error("❌ Error setting counter:", error);
+    }
   }
 };
 
-console.log("🔧 Cinema Usher debug functions available:");
-console.log("- window.cinemaUsherDebug.testKeyboardEvent('key') - Test specific key");
-console.log("- window.cinemaUsherDebug.testPause() - Test pause (direct video control)");
-console.log("- window.cinemaUsherDebug.testExitFullscreen() - Test exit fullscreen");
-console.log("- window.cinemaUsherDebug.getVideoElements() - List video elements");
-console.log("- window.cinemaUsherDebug.getFullscreenStatus() - Check fullscreen status");
+console.log("🔧 Mindathe Irikk debug functions available:");
+console.log("- window.mindatheIrikkDebug.testKeyboardEvent('key') - Test specific key");
+console.log("- window.mindatheIrikkDebug.testPause() - Test pause (direct video control)");
+console.log("- window.mindatheIrikkDebug.testExitFullscreen() - Test exit fullscreen");
+console.log("- window.mindatheIrikkDebug.getVideoElements() - List video elements");
+console.log("- window.mindatheIrikkDebug.getFullscreenStatus() - Check fullscreen status");
+console.log("- window.mindatheIrikkDebug.testRedirect() - Test redirect functionality");
+console.log("- window.mindatheIrikkDebug.setCounter(value) - Set counter to specific value");
 
 // Initialize when script loads
-console.log("🎭 Cinema Usher content script loaded");
+console.log("🎭 Mindathe Irikk content script loaded");

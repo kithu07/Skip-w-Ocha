@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cinema Usher</title>
+  <title>Mindathe Irikk</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
     <header class="header">
       <div class="logo">
         <span class="logo-icon">🎭</span>
-        <h1 class="title">Cinema Usher</h1>
+        <h1 class="title">Mindathe Irikk</h1>
       </div>
       <div class="status">
         <span class="status-text" id="status">Ready</span>
@@ -24,7 +24,7 @@
         <div class="control-item">
           <label class="control-label">
             <span class="label-icon">🎬</span>
-            <span class="label-text">Enable Usher</span>
+            <span class="label-text">Toggle</span>
           </label>
           <div class="toggle-container">
             <input type="checkbox" id="toggle" class="toggle-input">
@@ -56,12 +56,20 @@
           </label>
           <select id="scoldingType" class="scolding-select">
             <option value="classic">Cinema Stars</option>
-            <option value="dramatic">Dramatic</option>
+            <option value="dramatic">Influencers</option>
             <option value="whisper">Whisper</option>
             <option value="custom1">Custom Profile 1</option>
             <option value="custom2">Custom Profile 2</option>
             <option value="custom3">Custom Profile 3</option>
           </select>
+        </div>
+
+        <div class="control-item">
+          <label class="control-label">
+            <span class="label-icon">🔢</span>
+            <span class="label-text">Scolding Counter</span>
+            <span class="counter-value" id="counterValue">0</span>
+          </label>
         </div>
 
         <div class="audio-meter-container">
@@ -79,27 +87,6 @@
             <span class="meter-label">Loud</span>
           </div>
           <div class="meter-status" id="meterStatus">No audio detected</div>
-        </div>
-
-        <div class="control-item">
-          <button id="testBtn" class="test-button">
-            <span class="test-icon">🎭</span>
-            <span class="test-text">Test Scolding</span>
-          </button>
-        </div>
-
-        <div class="control-item">
-          <button id="testPauseBtn" class="test-button">
-            <span class="test-icon">⏸️</span>
-            <span class="test-text">Test Pause & Exit Fullscreen</span>
-          </button>
-        </div>
-
-        <div class="control-item">
-          <button id="debugBtn" class="debug-button">
-            <span class="debug-icon">🔧</span>
-            <span class="debug-text">Debug Audio</span>
-          </button>
         </div>
       </div>
     </main>

@@ -44,7 +44,7 @@ Load Unpacked → Select mindathe-irikk/ folder
 Play a video → Make noise → Get roasted
 
 # Screenshots (Add at least 3)
-<img src="assets/extension-popup-toolbar.jpeg" width="600" alt="Extension Popup Toolbar Screenshot" />
+<img src="assets/extension-popup-toolbar.jpeg" height="300" alt="Extension Popup Toolbar Screenshot" />
 
 *A sneak peek into our scolding machine in action — this is the popup where the magic begins.*
 

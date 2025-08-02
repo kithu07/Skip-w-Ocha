@@ -32,8 +32,6 @@ For Software:
 -Libraries: Web Audio API, Vanilla JS
 -Tools: Chrome DevTools, GitHub, VS Code
 
-### Implementation
-
 # Installation
 git clone https://github.com/kithu07/mindathe-irikK.git
 cd mindathe-irik
@@ -45,22 +43,10 @@ Load Unpacked → Select mindathe-irikk/ folder
 
 Play a video → Make noise → Get roasted
 
-### Project Documentation
-
 # Screenshots (Add at least 3)
-![Screenshot1](Add screenshot 1 here with proper name)
-*Add caption explaining what this shows*
+![Extension Popup Toolbar](./assets/extension-popup-toolbar.png)
+*A sneak peek into our scolding machine in action — this is the popup where the magic begins.*
 
-![Screenshot2](Add screenshot 2 here with proper name)
-*Add caption explaining what this shows*
-
-![Screenshot3](Add screenshot 3 here with proper name)
-*Add caption explaining what this shows*
-
-### Project Demo
-# Video
-[Add your demo video link here]
-*Explain what the video demonstrates*
 
 ## Team Contributions
 - Sebin Thomas: Developed the browser extension logic, including popup functionality, voice detection integration, threshold analysis, and scolding logic based on noise levels.

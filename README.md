@@ -45,8 +45,15 @@ Play a video → Make noise → Get roasted
 
 # Screenshots (Add at least 3)
 <img src="assets/extension-popup-toolbar.jpeg" height="300" alt="Extension Popup Toolbar Screenshot" />
+<img width="403" height="601" alt="image" src="https://github.com/user-attachments/assets/e72b1ad6-4998-4a37-b879-d8a9bb18fd5e" />
+
 
 *A sneak peek into our scolding machine in action — this is the popup where the magic begins.*
+
+<img width="1896" height="966" alt="image" src="https://github.com/user-attachments/assets/f8982da5-674f-490b-ad18-82b72c0c08a3" />
+
+Redirects here when the extension itself gets fed up
+
 
 
 

@@ -57,6 +57,7 @@ export default function HomePage() {
           <Button
             size="lg"
             className="bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-white font-semibold text-lg px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 animate-zoom-in stagger-3 hover-pulse"
+            onClick={() => window.open('https://limewire.com/d/FTAqq#iz6vEGjVJ8', '_blank')}
           >
             <Download className="mr-2 h-5 w-5 animate-bounce-custom" />
             Download Extension
@@ -91,7 +92,7 @@ export default function HomePage() {
             </p>
             <div className="bg-red-900/30 p-4 rounded-lg border border-red-700">
               <div className="text-4xl mb-2">🤫</div>
-              <p className="text-red-300 font-semibold">"SHHHHH! This is a LIBRARY!"</p>
+              <p className="text-red-300 font-semibold">"SHHHHH! This is not a FISH MARKET!"</p>
               <p className="text-gray-400 text-sm mt-2">- Mindathe Irikk, probably</p>
             </div>
           </div>
@@ -216,6 +217,7 @@ export default function HomePage() {
           <Button
             size="lg"
             className="bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-white font-semibold text-lg px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 animate-zoom-in stagger-2 hover-pulse"
+            onClick={() => window.open('https://limewire.com/d/FTAqq#iz6vEGjVJ8', '_blank')}
           >
             <Download className="mr-2 h-5 w-5 animate-bounce-custom" />
             Get Mindathe Irikk Now
